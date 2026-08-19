@@ -1,4 +1,4 @@
-# 🎬 OpenShift Chat MVP — Roteiro de Demonstração
+﻿# 🎬 OpenShift Chat MVP — Roteiro de Demonstração
 
 > **Duração total estimada:** 20–25 minutos  
 > **Ambiente:** IBM TechZone — OCP 4.19 — Cluster `itz-70730t`  
@@ -93,7 +93,6 @@ oc get pods -n openshift-lab
 Resultado esperado:
 ```
 NAME                             READY   STATUS    RESTARTS   AGE
-dotnet-sample-xxxx               1/1     Running   0          Xh
 golang-sample-xxxx               1/1     Running   0          Xh
 nginx-sample-xxxx                1/1     Running   0          Xh
 redis-xxxx                       1/1     Running   0          Xh
@@ -174,7 +173,6 @@ NAME               CPU(cores)   MEMORY(bytes)
 golang-sample      1m           9-15Mi    ← chat backend Go
 nginx-sample       1m           21Mi      ← frontend Nginx
 redis              6-9m         10-13Mi   ← banco de dados
-dotnet-sample      1m           54Mi      ← opcional
 ─────────────────────────────────────────
 TOTAL CHAT STACK   8m           ~46Mi     ← consumo mínimo
 ```
@@ -264,7 +262,6 @@ bash openshift-lab/cleanup.sh
 
 | Feature | Tecnologia | Pod |
 |---------|-----------|-----|
-| Admin panel / métricas | .NET 8 Blazor | `dotnet-sample` (já rodando) |
 | Múltiplas salas | Go — adicionar room routing | `golang-sample` rebuild |
 | Autenticação | OpenShift OAuth / Keycloak | novo deployment |
 | Persistência permanente | PostgreSQL | novo deployment |
@@ -290,7 +287,6 @@ oc get all -n openshift-lab -o wide
 **Resultado real (pós-limpeza de builds):**
 ```
 NAME                                 READY   STATUS    RESTARTS   AGE
-pod/dotnet-sample-74479495c8-j7vwl   1/1     Running   0          3h10m
 pod/golang-sample-5f75bf8c57-dgw76   1/1     Running   0          9m
 pod/nginx-sample-fc48cd459-c4kld     1/1     Running   0          97m
 pod/redis-7cb8f5d978-nxzbs           1/1     Running   0          32m
@@ -299,23 +295,19 @@ NAME                    TYPE        CLUSTER-IP       PORT(S)
 service/golang-sample   ClusterIP   172.30.245.242   8080/TCP
 service/nginx-sample    ClusterIP   172.30.239.251   8080/TCP
 service/redis           ClusterIP   172.30.60.255    6379/TCP
-service/dotnet-sample   ClusterIP   172.30.189.187   8080/TCP
 
 NAME                            READY   UP-TO-DATE   AVAILABLE
 deployment.apps/golang-sample   1/1     1            1
 deployment.apps/nginx-sample    1/1     1            1
 deployment.apps/redis           1/1     1            1
-deployment.apps/dotnet-sample   1/1     1            1
 
 NAME                             IMAGE REPOSITORY
 imagestream/golang-sample        .../openshift-lab/golang-sample   latest
 imagestream/nginx-sample         .../openshift-lab/nginx-sample    latest
-imagestream/dotnet-sample        .../openshift-lab/dotnet-sample   latest
 
 NAME                       HOST/PORT                                    TERMINATION
 route/golang-sample        golang-sample-openshift-lab.apps.itz-70730t…  edge/Redirect
 route/nginx-sample         nginx-sample-openshift-lab.apps.itz-70730t…   edge/Redirect
-route/dotnet-sample        dotnet-sample-openshift-lab.apps.itz-70730t…  edge/Redirect
 ```
 
 ---
@@ -333,7 +325,6 @@ oc adm top pods -n openshift-lab --sort-by=cpu
 **Resultado real — ordenado por memória:**
 ```
 NAME               CPU(cores)   MEMORY(bytes)
-dotnet-sample      2m           54Mi   ← maior consumidor de RAM
 nginx-sample       1m           21Mi
 redis              10m          10Mi
 golang-sample      1m            9Mi   ← menor! (chat backend Go)
@@ -343,7 +334,6 @@ golang-sample      1m            9Mi   ← menor! (chat backend Go)
 ```
 NAME               CPU(cores)   MEMORY(bytes)
 redis              10m          10Mi   ← maior consumidor de CPU (Pub/Sub ativo)
-dotnet-sample       2m          54Mi
 golang-sample       1m           9Mi
 nginx-sample        1m          21Mi
 ```

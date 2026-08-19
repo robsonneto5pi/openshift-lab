@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # =============================================================================
 # OpenShift Lab — Deploy Completo
 # Uso: bash openshift-lab/deploy.sh
@@ -69,7 +69,6 @@ echo ""
 echo "▶ [3/5] Criando builds S2I — Nginx, Golang, .NET..."
 oc apply -f "${MANIFESTS_DIR}/03-nginx-sample.yaml"
 oc apply -f "${MANIFESTS_DIR}/02-golang-sample.yaml"
-oc apply -f "${MANIFESTS_DIR}/01-dotnet-sample.yaml"
 ok "Manifestos aplicados — builds iniciados automaticamente"
 
 # ─── Step 4: Aguardar Redis ficar Ready ──────────────────────────────────────
