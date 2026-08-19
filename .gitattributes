@@ -1,0 +1,38 @@
+# =============================================================================
+# .gitattributes — line ending policy
+# =============================================================================
+
+# Padrao: todos os arquivos de texto usam LF no repositorio
+* text=auto eol=lf
+
+# Scripts bash/sh — CRITICO: LF obrigatorio (CRLF quebra shebang no Linux)
+*.sh        text eol=lf
+*.bash      text eol=lf
+.s2i/bin/*  text eol=lf
+Makefile    text eol=lf
+
+# Codigo fonte
+*.go        text eol=lf
+*.js        text eol=lf
+*.ts        text eol=lf
+*.html      text eol=lf
+*.css       text eol=lf
+
+# Configuracao e dados
+*.json      text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.md        text eol=lf
+*.env*      text eol=lf
+.gitignore  text eol=lf
+
+# Binarios — sem conversao
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.exe       binary
+*.gz        binary
+*.zip       binary
