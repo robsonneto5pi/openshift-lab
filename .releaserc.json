@@ -1,0 +1,70 @@
+{
+  "branches": [
+    "main",
+    {
+      "name": "develop",
+      "prerelease": "beta"
+    },
+    {
+      "name": "release/+([0-9])?(.{+([0-9]),x}).x",
+      "channel": "release-${name.replace(/^release\\//,'')}"
+    }
+  ],
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          { "type": "feat",     "release": "minor" },
+          { "type": "fix",      "release": "patch" },
+          { "type": "perf",     "release": "patch" },
+          { "type": "refactor", "release": "patch" },
+          { "type": "docs",     "release": false },
+          { "type": "chore",    "release": false },
+          { "type": "ci",       "release": false },
+          { "breaking": true,   "release": "major" }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "presetConfig": {
+          "types": [
+            { "type": "feat",     "section": "🚀 Features" },
+            { "type": "fix",      "section": "🐛 Bug Fixes" },
+            { "type": "perf",     "section": "⚡ Performance" },
+            { "type": "refactor", "section": "♻️ Refactoring" },
+            { "type": "docs",     "section": "📚 Documentation" },
+            { "type": "ci",       "section": "⚙️ CI/CD",   "hidden": true },
+            { "type": "chore",    "section": "🔧 Chores",  "hidden": true }
+          ]
+        }
+      }
+    ],
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [],
+        "successComment": "🎉 Esta issue/PR foi incluída no release [v${nextRelease.version}](${releases[0].url}).",
+        "failComment": "❌ O pipeline de release falhou. Verifique o log: ${failedSteps[0].log}",
+        "releasedLabels": ["released"]
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["CHANGELOG.md", "package.json"],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ]
+  ]
+}

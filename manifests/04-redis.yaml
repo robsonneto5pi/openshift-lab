@@ -1,0 +1,147 @@
+---
+# =============================================================================
+# Redis 7 — Deployment + Service + PVC
+# Imagem: registry.access.redhat.com/rhel9/redis-7
+# Justificativa: Redis tem o menor footprint de memória (32-64 MB idle)
+#                vs MongoDB (200+ MB) ou PostgreSQL (100+ MB), ideal para
+#                ambiente TechZone com recursos limitados.
+# oc apply -f openshift-lab/manifests/04-redis.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# PersistentVolumeClaim — armazenamento para dados Redis
+# 1Gi é suficiente para ambiente de lab/demo
+# -----------------------------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  namespace: openshift-lab
+  labels:
+    app: redis
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # storageClassName não especificado → usa default do cluster (ocs-storagecluster-ceph-rbd no TechZone)
+
+---
+# -----------------------------------------------------------------------------
+# Secret — senha do Redis
+# Troque o valor de REDIS_PASSWORD antes de aplicar em produção
+# Valor padrão: "redis-lab-pass" (base64: cmVkaXMtbGFiLXBhc3M=)
+# -----------------------------------------------------------------------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-secret
+  namespace: openshift-lab
+  labels:
+    app: redis
+    app.kubernetes.io/part-of: openshift-lab
+type: Opaque
+stringData:
+  REDIS_PASSWORD: "redis-lab-pass"
+
+---
+# -----------------------------------------------------------------------------
+# Deployment — Redis 7 com persistência e autenticação
+# -----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: openshift-lab
+  labels:
+    app: redis
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  strategy:
+    type: Recreate  # necessário com ReadWriteOnce PVC
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: docker.io/redis:7-alpine
+          ports:
+            - containerPort: 6379
+              protocol: TCP
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: REDIS_PASSWORD
+          command:
+            - redis-server
+            - --requirepass
+            - $(REDIS_PASSWORD)
+            - --save
+            - "60 1"
+            - --loglevel
+            - notice
+          volumeMounts:
+            - name: redis-data
+              mountPath: /var/lib/redis/data
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - -a
+                - $(REDIS_PASSWORD)
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - -a
+                - $(REDIS_PASSWORD)
+                - ping
+            initialDelaySeconds: 20
+            periodSeconds: 15
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-data
+
+---
+# -----------------------------------------------------------------------------
+# Service — ClusterIP (Redis não exposto externamente — acesso interno apenas)
+# -----------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: openshift-lab
+  labels:
+    app: redis
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  type: ClusterIP

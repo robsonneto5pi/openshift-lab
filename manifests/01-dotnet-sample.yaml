@@ -1,0 +1,157 @@
+---
+# =============================================================================
+# .NET Core Sample App — S2I Build + Deployment
+# Fonte: https://github.com/redhat-developer/s2i-dotnetcore-ex
+# oc apply -f openshift-lab/manifests/01-dotnet-sample.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# ImageStream — receberá a imagem buildada pelo S2I
+# -----------------------------------------------------------------------------
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: dotnet-sample
+  namespace: openshift-lab
+  labels:
+    app: dotnet-sample
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  lookupPolicy:
+    local: true
+
+---
+# -----------------------------------------------------------------------------
+# BuildConfig — S2I: clona repositório e builda imagem .NET Core
+# Imagem builder: registry.access.redhat.com/ubi9/dotnet-80
+# -----------------------------------------------------------------------------
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: dotnet-sample
+  namespace: openshift-lab
+  labels:
+    app: dotnet-sample
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/redhat-developer/s2i-dotnetcore-ex
+      ref: dotnet-8.0
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        namespace: openshift
+        name: dotnet:8.0-ubi8
+      env:
+        - name: DOTNET_STARTUP_PROJECT
+          value: app/app.csproj
+  output:
+    to:
+      kind: ImageStreamTag
+      name: dotnet-sample:latest
+  triggers:
+    - type: ConfigChange
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+---
+# -----------------------------------------------------------------------------
+# Deployment — executa a imagem .NET gerada pelo S2I
+# -----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dotnet-sample
+  namespace: openshift-lab
+  labels:
+    app: dotnet-sample
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dotnet-sample
+  template:
+    metadata:
+      labels:
+        app: dotnet-sample
+    spec:
+      containers:
+        - name: dotnet-sample
+          image: dotnet-sample:latest  # resolvido via ImageStream local
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:8080
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+
+---
+# -----------------------------------------------------------------------------
+# Service
+# -----------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: dotnet-sample
+  namespace: openshift-lab
+  labels:
+    app: dotnet-sample
+spec:
+  selector:
+    app: dotnet-sample
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+
+---
+# -----------------------------------------------------------------------------
+# Route — expõe a aplicação externamente via HTTPS (edge TLS)
+# -----------------------------------------------------------------------------
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: dotnet-sample
+  namespace: openshift-lab
+  labels:
+    app: dotnet-sample
+spec:
+  to:
+    kind: Service
+    name: dotnet-sample
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

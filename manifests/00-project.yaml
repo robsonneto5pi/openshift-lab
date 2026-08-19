@@ -1,0 +1,16 @@
+---
+# =============================================================================
+# Namespace / Project OpenShift
+# oc apply -f openshift-lab/manifests/00-project.yaml
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-lab
+  labels:
+    app.kubernetes.io/part-of: openshift-lab
+    app.kubernetes.io/managed-by: oc
+  annotations:
+    openshift.io/description: "Lab de validação de deploy: .NET, Go, Nginx e Redis"
+    openshift.io/display-name: "OpenShift Lab"
+    openshift.io/requester: "robson.neto@ibm.com"

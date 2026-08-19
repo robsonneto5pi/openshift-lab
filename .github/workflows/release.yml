@@ -1,0 +1,161 @@
+# =============================================================================
+# Release — Semantic Versioning + Deploy Production
+# Trigger: push para main (após merge de PR com 2 approvals)
+# Jobs: semantic-release → cria tag vX.Y.Z → deploy production com approval gate
+# =============================================================================
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Semantic Release — gera tag, CHANGELOG e GitHub Release
+  # ---------------------------------------------------------------------------
+  release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------------------------------------------------------------------
+  # Deploy Production — aguarda approval manual (environment protection)
+  # ---------------------------------------------------------------------------
+  deploy-production:
+    name: Deploy → Production
+    needs: release
+    if: needs.release.outputs.new_release_published == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://golang-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.release.outputs.new_release_version }}
+
+      # -----------------------------------------------------------------------
+      # Build Go (validação pré-deploy)
+      # -----------------------------------------------------------------------
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+          cache-dependency-path: openshift-lab/chat-backend/go.sum
+
+      - name: Validate Go build
+        working-directory: openshift-lab/chat-backend
+        run: go build -o /dev/null ./...
+
+      # -----------------------------------------------------------------------
+      # Instalar oc CLI
+      # -----------------------------------------------------------------------
+      - name: Install oc CLI
+        run: |
+          curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz \
+            | tar -xz -C /usr/local/bin oc
+
+      # -----------------------------------------------------------------------
+      # Login no cluster
+      # -----------------------------------------------------------------------
+      - name: OCP Login
+        run: |
+          oc login "${{ secrets.OPENSHIFT_PROD_SERVER }}" \
+            --token="${{ secrets.OPENSHIFT_PROD_TOKEN }}" \
+            --insecure-skip-tls-verify
+          oc project openshift-lab
+
+      # -----------------------------------------------------------------------
+      # S2I Builds com tag da release
+      # -----------------------------------------------------------------------
+      - name: S2I Build — golang-sample
+        run: |
+          oc start-build golang-sample \
+            --from-dir=openshift-lab/chat-backend \
+            --follow --wait \
+            -n openshift-lab
+
+      - name: S2I Build — nginx-sample
+        run: |
+          oc start-build nginx-sample \
+            --from-dir=openshift-lab/chat-frontend \
+            --follow --wait \
+            -n openshift-lab
+
+      # -----------------------------------------------------------------------
+      # Rollout + Health Check
+      # -----------------------------------------------------------------------
+      - name: Rollout status
+        run: |
+          oc rollout status deployment/golang-sample -n openshift-lab --timeout=120s
+          oc rollout status deployment/nginx-sample -n openshift-lab --timeout=120s
+
+      - name: Health Check
+        run: |
+          BACKEND="https://golang-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com"
+          bash openshift-lab/scripts/health-check.sh "$BACKEND"
+
+      # -----------------------------------------------------------------------
+      # Rollback automático se health check falhar
+      # -----------------------------------------------------------------------
+      - name: Rollback em caso de falha
+        if: failure()
+        run: bash openshift-lab/scripts/rollback.sh openshift-lab
+
+      # -----------------------------------------------------------------------
+      # Notificações Slack
+      # -----------------------------------------------------------------------
+      - name: Notify Slack — Release OK
+        if: success()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": ":rocket: *Production Deploy OK* — `openshift-lab` v${{ needs.release.outputs.new_release_version }}\nCommit: `${{ github.sha }}`\nPor: `${{ github.actor }}`"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      - name: Notify Slack — Release FALHOU
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": ":fire: *Production Deploy FALHOU* — `openshift-lab` v${{ needs.release.outputs.new_release_version }}\n*Rollback automático executado*\nVeja: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

@@ -1,0 +1,151 @@
+---
+# =============================================================================
+# Golang Sample App — S2I Build + Deployment
+# Fonte: https://github.com/sclorg/golang-ex
+# oc apply -f openshift-lab/manifests/02-golang-sample.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# ImageStream — receberá a imagem buildada pelo S2I
+# -----------------------------------------------------------------------------
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: golang-sample
+  namespace: openshift-lab
+  labels:
+    app: golang-sample
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  lookupPolicy:
+    local: true
+
+---
+# -----------------------------------------------------------------------------
+# BuildConfig — S2I: clona repositório e builda imagem Go
+# Imagem builder: registry.access.redhat.com/ubi9/go-toolset
+# -----------------------------------------------------------------------------
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: golang-sample
+  namespace: openshift-lab
+  labels:
+    app: golang-sample
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/sclorg/golang-ex
+      ref: master
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        namespace: openshift
+        name: golang:1.18-ubi9
+  output:
+    to:
+      kind: ImageStreamTag
+      name: golang-sample:latest
+  triggers:
+    - type: ConfigChange
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+---
+# -----------------------------------------------------------------------------
+# Deployment — executa a imagem Go gerada pelo S2I
+# -----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: golang-sample
+  namespace: openshift-lab
+  labels:
+    app: golang-sample
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: golang-sample
+  template:
+    metadata:
+      labels:
+        app: golang-sample
+    spec:
+      containers:
+        - name: golang-sample
+          image: golang-sample:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 15
+
+---
+# -----------------------------------------------------------------------------
+# Service
+# -----------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: golang-sample
+  namespace: openshift-lab
+  labels:
+    app: golang-sample
+spec:
+  selector:
+    app: golang-sample
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+
+---
+# -----------------------------------------------------------------------------
+# Route — expõe externamente via HTTPS (edge TLS)
+# -----------------------------------------------------------------------------
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: golang-sample
+  namespace: openshift-lab
+  labels:
+    app: golang-sample
+spec:
+  to:
+    kind: Service
+    name: golang-sample
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

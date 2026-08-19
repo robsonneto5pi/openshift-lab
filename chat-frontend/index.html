@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenShift Chat</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── Tela de Login ─────────────────────────────────────── -->
+    <div id="login-screen" class="screen active">
+      <div class="login-box">
+        <div class="login-logo">🚀</div>
+        <h1>OpenShift Chat</h1>
+        <p class="login-subtitle">Sala global em tempo real</p>
+        <div class="input-group">
+          <input
+            id="nickname-input"
+            type="text"
+            placeholder="Escolha um nickname (3–20 caracteres)"
+            maxlength="20"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="join-btn">Entrar →</button>
+        </div>
+        <p id="nickname-error" class="error hidden"></p>
+        <p class="login-hint">Apenas letras, números, _ ou -</p>
+      </div>
+    </div>
+
+    <!-- ── Tela de Chat ──────────────────────────────────────── -->
+    <div id="chat-screen" class="screen hidden">
+
+      <div class="chat-layout">
+
+        <!-- Sidebar -->
+        <aside id="sidebar">
+          <div class="sidebar-header">
+            <span class="sidebar-icon">👥</span>
+            <span id="online-count">0</span> online
+          </div>
+          <ul id="online-users"></ul>
+        </aside>
+
+        <!-- Área principal -->
+        <div class="chat-main">
+
+          <header class="chat-header">
+            <div class="header-left">
+              <span class="header-icon">💬</span>
+              <span class="header-title">Sala Global</span>
+            </div>
+            <div class="header-right">
+              <span id="connection-status" class="status-dot connecting" title="Conectando..."></span>
+              <span id="my-nickname" class="my-nickname"></span>
+            </div>
+          </header>
+
+          <!-- Mensagens -->
+          <div id="messages-container">
+            <div id="intro-banner" class="intro-banner">
+              <p>👋 Envie uma mensagem para se apresentar à sala!</p>
+            </div>
+          </div>
+
+          <!-- Input -->
+          <footer class="chat-footer">
+            <div class="input-row">
+              <input
+                id="message-input"
+                type="text"
+                placeholder="Digite sua mensagem..."
+                maxlength="500"
+                autocomplete="off"
+                disabled
+              />
+              <button id="send-btn" disabled>Enviar</button>
+            </div>
+            <div class="footer-meta">
+              <span id="rate-warning" class="rate-warning hidden">⚠️ Limite atingido, aguarde 1 min</span>
+              <span class="char-counter"><span id="char-count">0</span>/500</span>
+            </div>
+          </footer>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/websocket.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

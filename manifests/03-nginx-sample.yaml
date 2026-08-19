@@ -1,0 +1,152 @@
+---
+# =============================================================================
+# Nginx Sample App — S2I Build + Deployment
+# Fonte: https://github.com/sclorg/nginx-ex
+# oc apply -f openshift-lab/manifests/03-nginx-sample.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# ImageStream — receberá a imagem buildada pelo S2I
+# -----------------------------------------------------------------------------
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: nginx-sample
+  namespace: openshift-lab
+  labels:
+    app: nginx-sample
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  lookupPolicy:
+    local: true
+
+---
+# -----------------------------------------------------------------------------
+# BuildConfig — S2I: clona repositório e builda imagem Nginx
+# Imagem builder nativa OpenShift: openshift/nginx:1.24-ubi9
+# -----------------------------------------------------------------------------
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: nginx-sample
+  namespace: openshift-lab
+  labels:
+    app: nginx-sample
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/sclorg/nginx-ex
+      ref: master
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        namespace: openshift
+        name: nginx:1.24-ubi9
+  output:
+    to:
+      kind: ImageStreamTag
+      name: nginx-sample:latest
+  triggers:
+    - type: ConfigChange
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+---
+# -----------------------------------------------------------------------------
+# Deployment — executa a imagem Nginx gerada pelo S2I
+# Nginx roda como non-root na porta 8080 (padrão S2I Red Hat)
+# -----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-sample
+  namespace: openshift-lab
+  labels:
+    app: nginx-sample
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-sample
+  template:
+    metadata:
+      labels:
+        app: nginx-sample
+    spec:
+      containers:
+        - name: nginx-sample
+          image: nginx-sample:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 25m
+              memory: 32Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+
+---
+# -----------------------------------------------------------------------------
+# Service
+# -----------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-sample
+  namespace: openshift-lab
+  labels:
+    app: nginx-sample
+spec:
+  selector:
+    app: nginx-sample
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+
+---
+# -----------------------------------------------------------------------------
+# Route — expõe externamente via HTTPS (edge TLS)
+# -----------------------------------------------------------------------------
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nginx-sample
+  namespace: openshift-lab
+  labels:
+    app: nginx-sample
+spec:
+  to:
+    kind: Service
+    name: nginx-sample
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

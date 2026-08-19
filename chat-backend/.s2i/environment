@@ -1,0 +1,2 @@
+GOPATH=/opt/app-root
+GO_INSTALL_PACKAGE=.

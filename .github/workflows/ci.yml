@@ -1,0 +1,105 @@
+# =============================================================================
+# CI — Continuous Integration
+# Trigger: push/PR em qualquer branch
+# Jobs: lint de commits, build Go, validação de manifests
+# =============================================================================
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint de commits (Conventional Commits)
+  # ---------------------------------------------------------------------------
+  commitlint:
+    name: Commit Lint
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install commitlint
+        run: npm ci --prefix .
+
+      - name: Lint commits
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  # ---------------------------------------------------------------------------
+  # Build e validação do backend Go
+  # ---------------------------------------------------------------------------
+  build-backend:
+    name: Build Backend (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chat-backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+          cache-dependency-path: chat-backend/go.sum
+
+      - name: go mod tidy (verificar go.sum atualizado)
+        run: |
+          go mod tidy
+          git diff --exit-code go.sum || (echo "go.sum desatualizado — rode 'go mod tidy' localmente" && exit 1)
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build -o /dev/null ./...
+
+  # ---------------------------------------------------------------------------
+  # Validação dos manifests OpenShift (YAML + kubeval)
+  # ---------------------------------------------------------------------------
+  validate-manifests:
+    name: Validate Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint YAML
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: openshift-lab/manifests/
+          config_data: |
+            extends: default
+            rules:
+              line-length:
+                max: 150
+              truthy:
+                allowed-values: ["true", "false"]
+
+  # ---------------------------------------------------------------------------
+  # Verificar line endings LF nos scripts S2I (crítico para builds)
+  # ---------------------------------------------------------------------------
+  check-s2i-scripts:
+    name: Check S2I Scripts (LF line endings)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar line endings LF em .s2i/bin/*
+        run: |
+          for f in openshift-lab/chat-backend/.s2i/bin/*; do
+            if file "$f" | grep -q CRLF; then
+              echo "ERRO: $f tem CRLF — converter para LF antes do build S2I"
+              exit 1
+            fi
+          done
+          echo "OK: todos os scripts S2I usam LF"

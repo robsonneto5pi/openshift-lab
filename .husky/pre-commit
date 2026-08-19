@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Verificar line endings nos scripts S2I antes de qualquer commit
+for f in openshift-lab/chat-backend/.s2i/bin/*; do
+  if [ -f "$f" ] && file "$f" 2>/dev/null | grep -q CRLF; then
+    echo "ERRO: $f tem CRLF. Converta para LF antes de commitar."
+    exit 1
+  fi
+done

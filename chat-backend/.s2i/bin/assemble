@@ -1,0 +1,15 @@
+#!/bin/bash
+set -e
+
+echo '=== S2I Custom Assemble - Go Chat Backend ==='
+
+cp -Rf /tmp/src/. ./
+
+echo '--- go mod tidy ---'
+go mod tidy
+
+echo '--- go build ---'
+go build -o /opt/app-root/gobinary .
+
+echo '--- Build OK ---'
+ls -lh /opt/app-root/gobinary
