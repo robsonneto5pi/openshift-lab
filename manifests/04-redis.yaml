@@ -44,7 +44,7 @@ metadata:
     app.kubernetes.io/part-of: openshift-lab
 type: Opaque
 stringData:
-  REDIS_PASSWORD: "redis-lab-pass"
+  REDIS_PASSWORD: "REPLACE_WITH_SECURE_PASSWORD"
 
 ---
 # -----------------------------------------------------------------------------

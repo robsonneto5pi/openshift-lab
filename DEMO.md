@@ -155,11 +155,11 @@ $redisPod = oc get pods -n openshift-lab -l app=redis `
 
 # Histórico de mensagens
 oc exec $redisPod -n openshift-lab -- `
-  redis-cli -a redis-lab-pass LRANGE chat:history 0 9
+  redis-cli -a <REDIS_PASSWORD> LRANGE chat:history 0 9
 
 # Usuários online
 oc exec $redisPod -n openshift-lab -- `
-  redis-cli -a redis-lab-pass SMEMBERS chat:online
+  redis-cli -a <REDIS_PASSWORD> SMEMBERS chat:online
 ```
 
 ### F. Métricas de Recursos
@@ -355,9 +355,9 @@ nginx-sample        1m          21Mi
 ```powershell
 $pod = oc get pods -n openshift-lab -l app=redis --no-headers |
   ForEach-Object { ($_ -split '\s+')[0] }
-oc exec $pod -n openshift-lab -- redis-cli -a redis-lab-pass INFO stats
-oc exec $pod -n openshift-lab -- redis-cli -a redis-lab-pass INFO clients
-oc exec $pod -n openshift-lab -- redis-cli -a redis-lab-pass INFO memory
+oc exec $pod -n openshift-lab -- redis-cli -a <REDIS_PASSWORD> INFO stats
+oc exec $pod -n openshift-lab -- redis-cli -a <REDIS_PASSWORD> INFO clients
+oc exec $pod -n openshift-lab -- redis-cli -a <REDIS_PASSWORD> INFO memory
 ```
 
 **Resultado real (2026-08-18 ~20:57):**
@@ -437,7 +437,7 @@ oc port-forward svc/redis 6379:6379 -n openshift-lab
 
 # Testar após port-forward:
 # curl http://localhost:8080/health
-# redis-cli -p 6379 -a redis-lab-pass PING
+# redis-cli -p 6379 -a <REDIS_PASSWORD> PING
 ```
 
 ---

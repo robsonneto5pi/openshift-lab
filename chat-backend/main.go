@@ -23,7 +23,7 @@ func getEnv(key, fallback string) string {
 
 func main() {
 	redisAddr := getEnv("REDIS_HOST", "redis") + ":" + getEnv("REDIS_PORT", "6379")
-	redisPass := getEnv("REDIS_PASSWORD", "redis-lab-pass")
+	redisPass := getEnv("REDIS_PASSWORD", "")
 	port := getEnv("PORT", "8080")
 
 	log.Printf("Connecting to Redis at %s", redisAddr)

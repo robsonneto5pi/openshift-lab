@@ -85,7 +85,7 @@ oc get deployment golang-sample -n openshift-lab `
 |----------|---------------|---------|
 | `REDIS_HOST` | `redis` | ✅ Sim |
 | `REDIS_PORT` | `6379` | ✅ Sim |
-| `REDIS_PASSWORD` | `redis-lab-pass` | ✅ Sim |
+| `REDIS_PASSWORD` | `<REDIS_PASSWORD>` | ✅ Sim |
 | `HISTORY_LIMIT` | `100` | Não |
 | `RATE_LIMIT` | `10` | Não |
 | `GIN_MODE` | `release` | Não |

@@ -10,7 +10,7 @@
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                    IBM TechZone — OCP 4.18 (Medium)                      │
-│                   api.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com       │
+│                   <BASTION_HOST>       │
 │                                                                           │
 │  ┌─────────────────────────────────────────────────────────────────────┐ │
 │  │                 Namespace: openshift-lab                            │ │
@@ -240,11 +240,11 @@ oc describe bc dotnet-sample -n openshift-lab | grep -A2 "Webhook"
 
 ```bash
 # Via bastion (SSH)
-ssh -i ~/.ssh/itz-qi8nl6.pem -p 10022 itzuser@api.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com
+ssh -i ~/.ssh/<CLUSTER>.pem -p 10022 itzuser@<BASTION_HOST>
 
 # Dentro do bastion — login OCP
-oc login https://api.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com:6443 \
-  -u kubeadmin -p NjG2T-7uWMm-8xGbM-9hupn \
+oc login <OCP_SERVER> \
+  -u kubeadmin -p <OCP_PASSWORD> \
   --insecure-skip-tls-verify
 ```
 
@@ -272,8 +272,8 @@ oc get imagestreamtags -n openshift | grep -E "dotnet|golang|nginx"
 
 ```bash
 # Clonar ou copiar o projeto para o bastion
-scp -i ~/.ssh/itz-qi8nl6.pem -P 10022 -r ./openshift-lab \
-  itzuser@api.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com:~/
+scp -i ~/.ssh/<CLUSTER>.pem -P 10022 -r ./openshift-lab \
+  itzuser@<BASTION_HOST>:~/
 
 # Executar deploy
 bash ~/openshift-lab/deploy.sh
@@ -325,7 +325,7 @@ curl -k https://$(oc get route dotnet-sample -n openshift-lab -o jsonpath='{.spe
 
 # Testar Redis (de dentro do cluster via rsh)
 oc rsh deployment/redis -n openshift-lab
-redis-cli -a redis-lab-pass ping   # esperado: PONG
+redis-cli -a <REDIS_PASSWORD> ping   # esperado: PONG
 ```
 
 ---
@@ -361,7 +361,7 @@ redis-cli -a redis-lab-pass ping   # esperado: PONG
 
 ### Redis
 
-- [ ] `oc rsh deployment/redis` + `redis-cli -a redis-lab-pass ping` → `PONG`
+- [ ] `oc rsh deployment/redis` + `redis-cli -a <REDIS_PASSWORD> ping` → `PONG`
 
 ---
 

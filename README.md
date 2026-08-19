@@ -39,8 +39,8 @@ openshift-lab/
 
 ```bash
 # 1. Conectar ao cluster OCP (via bastion ou local)
-oc login https://api.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com:6443 \
-  -u kubeadmin -p NjG2T-7uWMm-8xGbM-9hupn --insecure-skip-tls-verify
+oc login <OCP_SERVER> \
+  -u kubeadmin -p <OCP_PASSWORD> --insecure-skip-tls-verify
 
 # 2. Executar deploy completo
 bash openshift-lab/deploy.sh
@@ -72,4 +72,4 @@ bash openshift-lab/cleanup.sh
 - [Nginx S2I](https://github.com/sclorg/nginx-ex)
 - [Redis on OpenShift](https://catalog.redhat.com/software/containers/rhel9/redis-7/63f94e6d6eb6ded04e2e6aa6)
 - [Red Hat Container Catalog](https://catalog.redhat.com)
-- Cluster TechZone: `https://api.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com:6443`
+- Cluster TechZone: `<OCP_SERVER>`
