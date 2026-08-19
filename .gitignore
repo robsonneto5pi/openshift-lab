@@ -50,3 +50,8 @@ Thumbs.db
 dist/
 *.log
 *.tmp
+# -----------------------------------------------------------------------------
+# Arquivos temporarios do Bob (assistente de IA)
+# -----------------------------------------------------------------------------
+BOB_*.md
+REMOVAL_ANALYSIS_DOTNET.md
