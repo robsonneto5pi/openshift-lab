@@ -240,3 +240,5 @@ git push origin feature/add-rate-limit-logging
 | [`scripts/rollback.sh`](../scripts/rollback.sh) | Rollback automático em caso de falha |
 | [`.husky/commit-msg`](../.husky/commit-msg) | Hook: valida formato do commit |
 | [`.husky/pre-commit`](../.husky/pre-commit) | Hook: verifica LF nos scripts S2I |
+
+<!-- ci-validation: pipeline test trigger -->
