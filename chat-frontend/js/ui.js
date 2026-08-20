@@ -139,7 +139,7 @@ window.ChatUI = (() => {
     el.appendChild(text);
     container.appendChild(el);
     scrollBottom();
-    return { isMention: isMentioned };
+    return { isMention: isMentioned, el };
   }
 
   function loadHistory(messages, myNick) {

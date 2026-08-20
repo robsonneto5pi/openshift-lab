@@ -49,6 +49,18 @@
     } catch (_) { /* AudioContext não disponível — silencioso */ }
   }
 
+  // Verifica se myNick está no array mentions vindo do servidor.
+  // Compara case-insensitive e aceita base sem discriminador.
+  function isMentionedByServer(mentions, myNick) {
+    if (!mentions || !mentions.length || !myNick) return false;
+    const myFull = myNick.toLowerCase();
+    const myBase = myFull.replace(/#\d+$/, '');
+    return mentions.some(m => {
+      const ml = m.toLowerCase();
+      return ml === myFull || ml === myBase;
+    });
+  }
+
   // Verifica se o container de mensagens está rolado até o final
   function isAtBottom() {
     const c = document.getElementById('messages-container');
@@ -172,10 +184,20 @@
         const isMe = env.user === myNick;
 
         if (!isMe) {
+          // Fonte primária: env.mentions vindo do servidor (fase 1b)
+          // Fallback: detecção local pelo DOM (fase 1c, mantida para compatibilidade)
+          const isMention = isMentionedByServer(env.mentions, myNick)
+                         || (result && result.isMention);
+
+          // Forçar classe mention na bolha se servidor confirmou (DOM pode não ter detectado)
+          if (isMention && result && result.el && !result.el.classList.contains('mention')) {
+            result.el.classList.add('mention');
+          }
+
           // Contabilizar não lidas quando aba sem foco OU usuário scrollou para cima
           if (!document.hasFocus() || !isAtBottom()) {
             unreadCount++;
-            if (result && result.isMention) {
+            if (isMention) {
               unreadMention = true;
               if (!muted) playMentionSound();
             }

@@ -5,13 +5,18 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	rdb "github.com/openshift-lab/chat-backend/redis"
 )
+
+// mentionRe captura @palavra (letras, dígitos, _, -, #)
+var mentionRe = regexp.MustCompile(`@([\w\-#]+)`)
 
 // MessageType distingue os tipos de mensagem trafegados via WebSocket.
 type MessageType string
@@ -33,6 +38,7 @@ type Envelope struct {
 	Timestamp string      `json:"ts,omitempty"`
 	Online    []string    `json:"online,omitempty"`
 	Messages  []Envelope  `json:"messages,omitempty"`
+	Mentions  []string    `json:"mentions,omitempty"` // nicknames ativos mencionados no conteúdo
 }
 
 func newEnvelope(t MessageType, user, content string) Envelope {
@@ -225,11 +231,47 @@ func (h *Hub) HandleMessage(c *Client, raw []byte) {
 		h.broadcastOnlineList()
 	}
 
-	// Publicar mensagem
+	// Detectar menções e incluir no envelope
+	online, _ := h.redis.GetOnline(ctx)
 	env := newEnvelope(TypeMessage, c.nickname, content)
+	env.Mentions = parseMentions(content, online)
+
+	// Publicar mensagem
 	payload, _ := json.Marshal(env)
 	_ = h.redis.Publish(ctx, string(payload))
 	_ = h.redis.PushHistory(ctx, string(payload), h.historyLimit)
+}
+
+// parseMentions extrai @menções do texto e retorna os nicknames que estão ativos.
+// Aceita @Base e @Base#XXXX — ambos resolvem contra a lista online.
+func parseMentions(content string, online []string) []string {
+	matches := mentionRe.FindAllStringSubmatch(content, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+
+	// Índice online: nick_lower → nick_original
+	onlineIdx := make(map[string]string, len(online))
+	for _, nick := range online {
+		onlineIdx[strings.ToLower(nick)] = nick
+		// também indexar a base sem discriminador: "robson#1234" → "robson"
+		if base, _, found := strings.Cut(strings.ToLower(nick), "#"); found {
+			if _, exists := onlineIdx[base]; !exists {
+				onlineIdx[base] = nick
+			}
+		}
+	}
+
+	seen := make(map[string]bool)
+	var result []string
+	for _, m := range matches {
+		lower := strings.ToLower(m[1])
+		if nick, ok := onlineIdx[lower]; ok && !seen[nick] {
+			seen[nick] = true
+			result = append(result, nick)
+		}
+	}
+	return result
 }
 
 func getEnv(key, fallback string) string {
