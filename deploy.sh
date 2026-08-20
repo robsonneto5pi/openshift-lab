@@ -7,13 +7,15 @@
 # ⚠️  ATENÇÃO — Quirks deste cluster TechZone (fra02):
 #   1. O registry interno vem desabilitado (managementState=Removed).
 #      Este script ativa o registry com emptyDir antes de buildar.
-#   2. Os builds S2I devem usar --from-dir (source local), NÃO Git trigger.
-#      O trigger ConfigChange gera InvalidOutputReference enquanto o registry
-#      não está pronto — novos builds manuais via --from-dir funcionam.
+#   2. Os builds S2I usam --from-archive (git archive HEAD). NÃO usar --from-dir
+#      pois o oc detecta o .git raiz e reenvia o Git HEAD — uncommitted changes
+#      são ignorados silenciosamente. Sempre commitar antes de buildar.
 #   3. Após o build, o Deployment precisa da imagem com prefixo do registry
 #      interno. O script faz o oc set image automaticamente.
 #   4. O Deployment usa env vars explícitas para REDIS_HOST/REDIS_PORT porque
 #      o Kubernetes injeta REDIS_PORT=tcp://... que sobrescreve o fallback do app.
+#   5. CI/CD via Git trigger requer Secret com PAT do github.ibm.com vinculado
+#      ao BuildConfig — pendente de implementação.
 # =============================================================================
 set -euo pipefail
 
@@ -110,8 +112,14 @@ oc rollout status deployment/redis -n "${NAMESPACE}" --timeout=180s \
   || warn "Redis ainda não está pronto — verifique: oc get pods -n ${NAMESPACE}"
 
 echo ""
-echo "  Iniciando builds S2I via --from-dir (source local)..."
-echo "  (Isso evita InvalidOutputReference que ocorre com o trigger Git neste cluster)"
+echo "  Gerando archives do Git HEAD (garante conteúdo commitado)..."
+git -C "${SCRIPT_DIR}" archive HEAD chat-backend --prefix="" \
+  -o "${SCRIPT_DIR}/backend-build.tar"
+git -C "${SCRIPT_DIR}" archive HEAD chat-frontend --prefix="" \
+  -o "${SCRIPT_DIR}/frontend-build.tar"
+echo "  Archives gerados."
+echo ""
+echo "  Iniciando builds S2I via --from-archive..."
 echo ""
 
 # Cancelar qualquer build pendente antes de iniciar novos
@@ -120,13 +128,13 @@ oc cancel-build -l buildconfig=nginx-sample  -n "${NAMESPACE}" 2>/dev/null || tr
 
 echo "  → Build: golang-sample (chat-backend/)"
 oc start-build golang-sample \
-  --from-dir="${SCRIPT_DIR}/chat-backend" \
+  --from-archive="${SCRIPT_DIR}/backend-build.tar" \
   -n "${NAMESPACE}" &
 GOLANG_BUILD_PID=$!
 
 echo "  → Build: nginx-sample (chat-frontend/)"
 oc start-build nginx-sample \
-  --from-dir="${SCRIPT_DIR}/chat-frontend" \
+  --from-archive="${SCRIPT_DIR}/frontend-build.tar" \
   -n "${NAMESPACE}" &
 NGINX_BUILD_PID=$!
 
@@ -174,6 +182,9 @@ oc rollout status deployment/golang-sample -n "${NAMESPACE}" --timeout=120s \
 oc rollout status deployment/nginx-sample -n "${NAMESPACE}" --timeout=120s \
   && ok "nginx-sample Running" \
   || warn "nginx-sample ainda não está pronto"
+
+# ─── Limpeza de arquivos temporários ─────────────────────────────────────────
+rm -f "${SCRIPT_DIR}/backend-build.tar" "${SCRIPT_DIR}/frontend-build.tar"
 
 # ─── Status final ─────────────────────────────────────────────────────────────
 echo ""

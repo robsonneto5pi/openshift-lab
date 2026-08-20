@@ -36,12 +36,24 @@ node scripts/simulate-chat.js [users] [msgs] [wsUrl]  # load test against live c
 ```
 
 ### S2I build trigger (requires oc login)
-```bash
-# Always --from-dir — never use the Git trigger on this cluster (see TechZone quirks below)
-oc start-build golang-sample --from-dir=chat-backend --follow -n openshift-lab
-oc start-build nginx-sample  --from-dir=chat-frontend --follow -n openshift-lab
 
-# After each build: point the Deployment to the internal registry image
+> ⚠️ **CRITICAL — always commit first, then build from `git archive`.**
+> `oc start-build --from-dir` uses `git archive` internally and sends whatever Git HEAD has.
+> Uncommitted changes are **silently ignored** — the pod will receive the old file.
+
+```bash
+# Step 1 — commit all changes
+git add <files> && git commit -m "..."
+
+# Step 2 — generate tar from Git HEAD (guarantees committed content)
+git archive HEAD chat-backend --prefix="" -o backend-build.tar
+git archive HEAD chat-frontend --prefix="" -o frontend-build.tar
+
+# Step 3 — build from archive (not --from-dir)
+oc start-build golang-sample --from-archive=backend-build.tar --follow -n openshift-lab
+oc start-build nginx-sample  --from-archive=frontend-build.tar --follow -n openshift-lab
+
+# Step 4 — point Deployment to new image
 oc set image deployment/golang-sample \
   golang-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/golang-sample:latest" \
   -n openshift-lab
@@ -49,6 +61,10 @@ oc set image deployment/nginx-sample \
   nginx-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/nginx-sample:latest" \
   -n openshift-lab
 ```
+
+> **CI/CD debt:** BuildConfigs now point to `github.ibm.com/robson-neto/openshift-lab` (branch `develop`).
+> Full Git-triggered CI requires a `kubernetes.io/basic-auth` Secret with a GitHub IBM PAT bound to the BuildConfig,
+> plus a webhook. Until then the manual `git archive` flow above is the correct approach.
 
 ## Architecture
 
@@ -101,7 +117,7 @@ These are non-obvious issues specific to this TechZone cluster that **will break
    oc rollout status deployment/image-registry -n openshift-image-registry --timeout=180s
    ```
 
-2. **S2I Git trigger produces `InvalidOutputReference`** — the build controller does not recognize the registry even after it starts. Always use `--from-dir` (binary build) instead of the Git trigger/ConfigChange trigger.
+2. **S2I Git trigger produces `InvalidOutputReference`** — the build controller does not recognize the registry even after it starts. Use binary builds (see Commands above); never use the Git trigger/ConfigChange trigger.
 
 3. **Deployment image not auto-updated after first build** — the Deployment was created before any build succeeded, so it retains the bare `golang-sample:latest` tag which resolves to Docker Hub (not found). Run `oc set image` with the full internal registry URL after each build.
 
