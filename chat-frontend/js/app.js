@@ -7,15 +7,69 @@
   let myNick = '';
   let firstMsgSent = false;
 
+  // ── Notificações ──────────────────────────────────────────────────────
+  let unreadCount   = 0;   // mensagens não lidas (não minhas)
+  let unreadMention = false; // true quando há menção não lida
+  let muted = localStorage.getItem('chat:muted') === 'true';
+
+  const BASE_TITLE = 'OpenShift Chat';
+
+  function updateTabTitle() {
+    if (unreadMention) {
+      document.title = '(!) ' + BASE_TITLE;
+    } else if (unreadCount > 0) {
+      document.title = '(' + unreadCount + ') ' + BASE_TITLE;
+    } else {
+      document.title = BASE_TITLE;
+    }
+  }
+
+  function resetUnread() {
+    unreadCount   = 0;
+    unreadMention = false;
+    updateTabTitle();
+  }
+
+  // Toca um beep suave via Web Audio API (não requer nenhum arquivo de áudio)
+  function playMentionSound() {
+    if (muted) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);          // lá5
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15); // lá4
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.25);
+    } catch (_) { /* AudioContext não disponível — silencioso */ }
+  }
+
+  // Verifica se o container de mensagens está rolado até o final
+  function isAtBottom() {
+    const c = document.getElementById('messages-container');
+    if (!c) return true;
+    return c.scrollHeight - c.scrollTop - c.clientHeight < 40;
+  }
+
   // ── Inicialização ────────────────────────────────────────────────────
   ChatUI.showLogin();
 
   // ── Login ────────────────────────────────────────────────────────────
-  const joinBtn        = document.getElementById('join-btn');
-  const nicknameInput  = document.getElementById('nickname-input');
-  const messageInput   = document.getElementById('message-input');
-  const sendBtn        = document.getElementById('send-btn');
-  const leaveBtn       = document.getElementById('leave-btn');
+  const joinBtn       = document.getElementById('join-btn');
+  const nicknameInput = document.getElementById('nickname-input');
+  const messageInput  = document.getElementById('message-input');
+  const sendBtn       = document.getElementById('send-btn');
+  const leaveBtn      = document.getElementById('leave-btn');
+  const muteBtn       = document.getElementById('mute-btn');
+
+  // Aplicar estado inicial do mute
+  if (muted) muteBtn.classList.add('muted');
+  muteBtn.title = muted ? 'Ativar notificações' : 'Silenciar notificações';
 
   function validateNick(n) {
     if (!n || n.trim().length === 0) return 'Nickname não pode ser vazio';
@@ -40,6 +94,34 @@
   nicknameInput.addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
   nicknameInput.addEventListener('input', () => ChatUI.clearNicknameError());
 
+  // ── Mute toggle ───────────────────────────────────────────────────────
+  muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    localStorage.setItem('chat:muted', muted);
+    muteBtn.classList.toggle('muted', muted);
+    muteBtn.title = muted ? 'Ativar notificações' : 'Silenciar notificações';
+    muteBtn.textContent = muted ? '🔕' : '🔔';
+  });
+
+  // ── Reset unread ao focar a aba + scroll-to-bottom ────────────────────
+  window.addEventListener('focus', () => {
+    if (isAtBottom()) resetUnread();
+  });
+
+  document.getElementById('messages-container') &&
+    document.getElementById('messages-container').addEventListener('scroll', () => {
+      if (document.hasFocus() && isAtBottom()) resetUnread();
+    });
+
+  // O container de mensagens só existe na tela de chat; registrar o listener
+  // depois que o chat aparecer via MutationObserver
+  const _msgsContainer = document.getElementById('messages-container');
+  if (_msgsContainer) {
+    _msgsContainer.addEventListener('scroll', () => {
+      if (document.hasFocus() && isAtBottom()) resetUnread();
+    });
+  }
+
   // ── WebSocket events ─────────────────────────────────────────────────
   ChatWS.on('open', () => {
     ChatUI.setStatus('connected');
@@ -50,9 +132,10 @@
 
   ChatWS.on('close', () => {
     if (ChatWS.isLeaving()) {
-      // Saída intencional: limpar tudo e voltar para login
       myNick = '';
       firstMsgSent = false;
+      resetUnread();
+      document.title = BASE_TITLE;
       ChatUI.resetChat();
       return;
     }
@@ -80,13 +163,27 @@
         }
         break;
 
-      case 'message':
+      case 'message': {
         if (!firstMsgSent && env.user === myNick) {
           firstMsgSent = true;
           ChatUI.removeIntroBanner();
         }
-        ChatUI.appendMessage(env, myNick);
+        const result = ChatUI.appendMessage(env, myNick);
+        const isMe = env.user === myNick;
+
+        if (!isMe) {
+          // Contabilizar não lidas quando aba sem foco OU usuário scrollou para cima
+          if (!document.hasFocus() || !isAtBottom()) {
+            unreadCount++;
+            if (result && result.isMention) {
+              unreadMention = true;
+              if (!muted) playMentionSound();
+            }
+            updateTabTitle();
+          }
+        }
         break;
+      }
 
       case 'system':
         ChatUI.appendMessage(env, myNick);

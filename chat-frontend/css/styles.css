@@ -181,6 +181,20 @@ html, body, #app { height: 100%; font-family: var(--font); background: var(--bg)
 }
 .leave-btn:hover { color: var(--red); border-color: var(--red); }
 
+.mute-btn {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+  transition: opacity .2s, border-color .2s;
+  opacity: 1;
+}
+.mute-btn:hover { border-color: var(--accent); }
+.mute-btn.muted { opacity: .4; }
+
 /* Status dot */
 .status-dot {
   width: 10px; height: 10px;
@@ -256,6 +270,19 @@ html, body, #app { height: 100%; font-family: var(--font); background: var(--bg)
   font-style: italic;
   padding: 2px 8px;
 }
+
+/* Mention highlight */
+.msg.mention {
+  border-left: 3px solid var(--yellow);
+  padding-left: 9px; /* compensate border */
+}
+.msg.mine.mention { border-left-color: rgba(255,255,255,.6); }
+
+.mention-text {
+  font-weight: 700;
+  color: var(--yellow);
+}
+.msg.mine .mention-text { color: rgba(255,255,255,.9); }
 
 .msg-header {
   display: flex;
