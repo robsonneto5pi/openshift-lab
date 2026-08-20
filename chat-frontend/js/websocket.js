@@ -9,6 +9,7 @@ window.ChatWS = (() => {
   let reconnectDelay = 1000;
   let reconnectTimer = null;
   let intentionalClose = false;
+  let leaving = false;
   const handlers = {};
 
   function on(event, fn) { handlers[event] = fn; }
@@ -17,6 +18,7 @@ window.ChatWS = (() => {
   function connect(nick) {
     nickname = nick;
     intentionalClose = false;
+    leaving = false;
     const url = `wss://${WS_BACKEND_HOST}/ws?nickname=${encodeURIComponent(nick)}`;
     console.log('[WS] Connecting to', url);
 
@@ -80,9 +82,25 @@ window.ChatWS = (() => {
     if (socket) socket.close();
   }
 
+  // Notifica o servidor (Redis cleanup + broadcast) e fecha o socket imediatamente.
+  // O servidor responde limpando Redis + broadcast; onclose local dispara resetChat().
+  function leave() {
+    leaving = true;
+    intentionalClose = true;
+    clearTimeout(reconnectTimer);
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'leave' }));
+      socket.close();
+    } else if (socket) {
+      socket.close();
+    }
+  }
+
+  function isLeaving() { return leaving; }
+
   function isConnected() {
     return socket && socket.readyState === WebSocket.OPEN;
   }
 
-  return { connect, send, disconnect, isConnected, on };
+  return { connect, send, disconnect, leave, isConnected, isLeaving, on };
 })();

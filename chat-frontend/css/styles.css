@@ -168,6 +168,19 @@ html, body, #app { height: 100%; font-family: var(--font); background: var(--bg)
 
 .my-nickname { font-size: 13px; color: var(--accent); font-weight: 600; }
 
+.leave-btn {
+  padding: 5px 12px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+.leave-btn:hover { color: var(--red); border-color: var(--red); }
+
 /* Status dot */
 .status-dot {
   width: 10px; height: 10px;

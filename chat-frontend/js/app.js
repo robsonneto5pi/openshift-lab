@@ -15,6 +15,7 @@
   const nicknameInput  = document.getElementById('nickname-input');
   const messageInput   = document.getElementById('message-input');
   const sendBtn        = document.getElementById('send-btn');
+  const leaveBtn       = document.getElementById('leave-btn');
 
   function validateNick(n) {
     if (!n || n.trim().length === 0) return 'Nickname não pode ser vazio';
@@ -48,6 +49,13 @@
   });
 
   ChatWS.on('close', () => {
+    if (ChatWS.isLeaving()) {
+      // Saída intencional: limpar tudo e voltar para login
+      myNick = '';
+      firstMsgSent = false;
+      ChatUI.resetChat();
+      return;
+    }
     ChatUI.setStatus('error');
     messageInput.disabled = true;
     sendBtn.disabled = true;
@@ -106,6 +114,11 @@
       ChatUI.updateCharCount(0);
     }
   }
+
+  // ── Leave ─────────────────────────────────────────────────────────────
+  leaveBtn.addEventListener('click', () => {
+    ChatWS.leave();
+  });
 
   sendBtn.addEventListener('click', sendMessage);
   messageInput.addEventListener('keydown', e => {
