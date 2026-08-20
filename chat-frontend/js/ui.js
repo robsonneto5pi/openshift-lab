@@ -49,7 +49,51 @@ window.ChatUI = (() => {
   }
 
   // ── Messages ─────────────────────────────────────────────────────────
-  function appendMessage(env, myNick) {
+
+  // Renderiza o conteúdo da mensagem com @menções em negrito.
+  // Retorna true se myNick foi mencionado.
+  function renderContent(textEl, content, myNick) {
+    // Regex: @palavra (letras, números, _, -, #)
+    const mentionRe = /@([\w\-#]+)/g;
+    let lastIdx = 0;
+    let matched;
+    let isMentioned = false;
+
+    // Base do nickname para comparação: "Robson#4821" → "Robson" e "Robson#4821"
+    const myBase = myNick ? myNick.replace(/#\d+$/, '').toLowerCase() : '';
+    const myFull = myNick ? myNick.toLowerCase() : '';
+
+    while ((matched = mentionRe.exec(content)) !== null) {
+      // texto antes da menção
+      if (matched.index > lastIdx) {
+        textEl.appendChild(document.createTextNode(content.slice(lastIdx, matched.index)));
+      }
+      const mentionWord = matched[1];
+      const mentionLower = mentionWord.toLowerCase();
+
+      // Verificar se é menção ao usuário atual (base ou full)
+      if (myNick && (mentionLower === myFull || mentionLower === myBase)) {
+        isMentioned = true;
+      }
+
+      const span = document.createElement('span');
+      span.className = 'mention-text';
+      span.textContent = '@' + mentionWord;
+      textEl.appendChild(span);
+      lastIdx = matched.index + matched[0].length;
+    }
+
+    // texto restante após a última menção
+    if (lastIdx < content.length) {
+      textEl.appendChild(document.createTextNode(content.slice(lastIdx)));
+    }
+
+    return isMentioned;
+  }
+
+  function appendMessage(env, myNick, opts) {
+    // opts: { fromHistory: bool } — mensagens do histórico não disparam notificações
+    const fromHistory = opts && opts.fromHistory;
     const container = $('messages-container');
 
     if (env.type === 'system') {
@@ -58,10 +102,10 @@ window.ChatUI = (() => {
       el.textContent = '— ' + env.content + ' —';
       container.appendChild(el);
       scrollBottom();
-      return;
+      return { isMention: false };
     }
 
-    if (env.type !== 'message') return;
+    if (env.type !== 'message') return { isMention: false };
 
     const isMe = env.user === myNick;
     const el = document.createElement('div');
@@ -83,12 +127,19 @@ window.ChatUI = (() => {
 
     const text = document.createElement('div');
     text.className = 'msg-text';
-    text.textContent = env.content;
+
+    // Renderiza conteúdo com menções em negrito
+    const isMentioned = !isMe && !fromHistory
+      ? renderContent(text, env.content, myNick)
+      : (text.textContent = env.content, false);
+
+    if (isMentioned) el.classList.add('mention');
 
     el.appendChild(header);
     el.appendChild(text);
     container.appendChild(el);
     scrollBottom();
+    return { isMention: isMentioned };
   }
 
   function loadHistory(messages, myNick) {
@@ -96,7 +147,7 @@ window.ChatUI = (() => {
     const banner = document.querySelector('.intro-banner');
     if (banner && messages.length > 0) banner.remove();
 
-    messages.forEach(m => appendMessage(m, myNick));
+    messages.forEach(m => appendMessage(m, myNick, { fromHistory: true }));
   }
 
   function scrollBottom() {
