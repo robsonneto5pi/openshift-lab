@@ -6,7 +6,7 @@
 # =============================================================================
 set -euo pipefail
 
-BASE_URL="${1:-https://golang-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com}"
+BASE_URL="${1:-https://golang-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com}"
 MAX_RETRIES=12
 RETRY_INTERVAL=10
 

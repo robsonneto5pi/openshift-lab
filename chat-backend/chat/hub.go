@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	rdb "github.com/openshift-lab/chat-backend/redis"
 )
 
@@ -21,6 +22,7 @@ const (
 	TypeHistory MessageType = "history" // batch de histórico
 	TypeOnline  MessageType = "online"  // atualização da lista de online
 	TypeError   MessageType = "error"   // erro de validação
+	TypeLeave   MessageType = "leave"   // cliente solicitou sair da sala
 )
 
 // Envelope é o formato JSON usado em todas as trocas WS ↔ servidor.
@@ -181,10 +183,18 @@ func (h *Hub) publishSystem(content string) {
 // HandleMessage processa uma mensagem recebida de um client WS.
 func (h *Hub) HandleMessage(c *Client, raw []byte) {
 	var incoming struct {
-		Content string `json:"content"`
+		Type    MessageType `json:"type"`
+		Content string      `json:"content"`
 	}
 	if err := json.Unmarshal(raw, &incoming); err != nil {
 		c.sendError("Formato inválido")
+		return
+	}
+
+	// Solicitação de saída intencional: envia close frame; readPump dispara unregist.
+	if incoming.Type == TypeLeave {
+		_ = c.conn.WriteMessage(websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseNormalClosure, "leave"))
 		return
 	}
 

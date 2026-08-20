@@ -13,6 +13,23 @@ window.ChatUI = (() => {
     $('chat-screen').classList.remove('active');
   }
 
+  // Limpa o estado do chat e volta para a tela de login.
+  function resetChat() {
+    // Limpar mensagens
+    const container = $('messages-container');
+    container.innerHTML = '<div class="intro-banner"><p>👋 Envie uma mensagem para se apresentar à sala!</p></div>';
+    // Limpar lista de online
+    $('online-users').innerHTML = '';
+    $('online-count').textContent = '0';
+    // Limpar inputs
+    $('message-input').value = '';
+    $('message-input').disabled = true;
+    $('send-btn').disabled = true;
+    $('nickname-input').value = '';
+    // Voltar para login
+    showLogin();
+  }
+
   function showChat(nick) {
     $('chat-screen').classList.add('active');
     $('chat-screen').classList.remove('hidden');
@@ -147,7 +164,7 @@ window.ChatUI = (() => {
   }
 
   return {
-    showLogin, showChat, setStatus,
+    showLogin, showChat, setStatus, resetChat,
     appendMessage, loadHistory,
     updateOnline, removeIntroBanner,
     showRateWarning,

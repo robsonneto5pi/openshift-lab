@@ -8,14 +8,14 @@
  * Defaults:
  *   numUsers      = 5
  *   totalMessages = 100
- *   wsUrl         = wss://golang-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com/ws
+ *   wsUrl         = wss://golang-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com/ws
  */
 
 const WebSocket = require('ws');
 
 const NUM_USERS     = parseInt(process.argv[2]) || 10;
 const TOTAL_MSGS    = parseInt(process.argv[3]) || 100;
-const WS_URL        = process.argv[4] || 'wss://golang-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com/ws';
+const WS_URL        = process.argv[4] || 'wss://golang-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com/ws';
 const MSG_INTERVAL  = 200; // ms entre mensagens por usuário
 
 const stats = {

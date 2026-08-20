@@ -87,7 +87,9 @@ spec:
             - --requirepass
             - $(REDIS_PASSWORD)
             - --save
-            - "60 1"
+            - ""
+            - --stop-writes-on-bgsave-error
+            - "no"
             - --loglevel
             - notice
           volumeMounts:

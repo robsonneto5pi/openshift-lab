@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: staging
-      url: https://golang-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com
+      url: https://golang-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com
 
     steps:
       - uses: actions/checkout@v4
@@ -92,7 +92,7 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Health Check
         run: |
-          BACKEND="https://golang-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com"
+          BACKEND="https://golang-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com"
           bash openshift-lab/scripts/health-check.sh "$BACKEND"
 
       # -----------------------------------------------------------------------
