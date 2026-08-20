@@ -10,14 +10,14 @@
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                    IBM TechZone — OCP 4.18 (Medium)                      │
-│                   <BASTION_HOST>       │
+│              api.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com       │
 │                                                                           │
 │  ┌─────────────────────────────────────────────────────────────────────┐ │
 │  │                 Namespace: openshift-lab                            │ │
 │  │                                                                     │ │
 │  │  ┌──────────────────────────────────────────────────────────────┐  │ │
 │  │  │                  Ingress / Router (HAProxy)                   │  │ │
-│  │  │        *.apps.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com   │  │ │
+│  │  │        *.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com   │  │ │
 │  │  └────────────┬───────────────┬──────────────┬───────────────────┘  │ │
 │  │               │ Route (HTTPS) │ Route (HTTPS) │ Route (HTTPS)        │ │
 │  │               ▼               ▼               ▼                      │ │
@@ -54,8 +54,8 @@
 └──────────────────────────────────────────────────────────────────────────┘
 
 Acesso externo via browser:
-  https://golang-sample-openshift-lab.apps.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com
-  https://nginx-sample-openshift-lab.apps.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com
+  https://golang-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com
+  https://nginx-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com
 ```
 
 ---
@@ -276,13 +276,30 @@ bash ~/openshift-lab/deploy.sh
 oc apply -f openshift-lab/manifests/00-project.yaml
 oc project openshift-lab
 
+# ⚠️  Ativar registry interno (necessário neste cluster TechZone — vem desabilitado)
+oc patch configs.imageregistry.operator.openshift.io cluster --type merge \
+  --patch-file <(echo '{"spec":{"managementState":"Managed","storage":{"emptyDir":{}},"replicas":1}}')
+oc rollout status deployment/image-registry -n openshift-image-registry --timeout=180s
+
 # Redis
 oc apply -f openshift-lab/manifests/04-redis.yaml
 oc rollout status deployment/redis -n openshift-lab
 
-# Apps S2I
+# Apps S2I — aplicar manifestos (ImageStream + BuildConfig + Deployment)
 oc apply -f openshift-lab/manifests/03-nginx-sample.yaml
 oc apply -f openshift-lab/manifests/02-golang-sample.yaml
+
+# ⚠️  Builds: usar --from-dir (NÃO o trigger Git — gera InvalidOutputReference neste cluster)
+oc start-build golang-sample --from-dir=openshift-lab/chat-backend --follow -n openshift-lab
+oc start-build nginx-sample  --from-dir=openshift-lab/chat-frontend --follow -n openshift-lab
+
+# ⚠️  Após builds: apontar Deployments para imagem do registry interno
+oc set image deployment/golang-sample \
+  golang-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/golang-sample:latest" \
+  -n openshift-lab
+oc set image deployment/nginx-sample \
+  nginx-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/nginx-sample:latest" \
+  -n openshift-lab
 ```
 
 ### 5. Monitorar builds
@@ -291,9 +308,13 @@ oc apply -f openshift-lab/manifests/02-golang-sample.yaml
 # Listar builds em andamento
 oc get builds -n openshift-lab -w
 
-# Ver logs de um build específico
+# Ver logs do build mais recente de cada app
+oc logs -f build/golang-sample-$(oc get builds -n openshift-lab -l buildconfig=golang-sample \
+  --sort-by='.metadata.creationTimestamp' --no-headers | tail -1 | awk '{print $1}' | grep -oP '\d+$') \
+  -n openshift-lab
 
-# Ver log do build mais recente
+# Ver log de um build específico (ex: golang-sample-4)
+oc logs build/golang-sample-4 -n openshift-lab
 ```
 
 ### 6. Verificar deployment
@@ -396,5 +417,5 @@ bash openshift-lab/cleanup.sh
 | S2I Docs | https://docs.openshift.com/container-platform/4.18/cicd/builds/build-strategies.html |
 | OCP BuildConfig | https://docs.openshift.com/container-platform/4.18/cicd/builds/understanding-buildconfigs.html |
 | OCP ImageStream | https://docs.openshift.com/container-platform/4.18/openshift_images/image-streams-manage.html |
-| Cluster TechZone | https://techzone.ibm.com/my/requests/6a83048f9a24e6763ac1b8e7 |
-| OCP Console | https://console-openshift-console.apps.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com |
+| Cluster TechZone | https://techzone.ibm.com/my/requests/6a86d03bbd35986274e9828f |
+| OCP Console | https://console-openshift-console.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com |

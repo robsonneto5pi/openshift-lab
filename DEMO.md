@@ -1,8 +1,8 @@
-﻿# 🎬 OpenShift Chat MVP — Roteiro de Demonstração
+# 🎬 OpenShift Chat MVP — Roteiro de Demonstração
 
-> **Duração total estimada:** 20–25 minutos  
-> **Ambiente:** IBM TechZone — OCP 4.19 — Cluster `itz-70730t`  
-> **Data de criação:** 2026-08-18
+> **Duração total estimada:** 20–25 minutos
+> **Ambiente:** IBM TechZone — OCP 4.19 — Cluster `itz-1y1puu` (Frankfurt fra02)
+> **Atualizado:** 2026-08-20
 
 ---
 
@@ -21,7 +21,7 @@
 | **Backend** | Golang 1.18 — WebSocket + Gin Framework | `golang-sample` |
 | **Frontend** | HTML5 / CSS3 / JavaScript Vanilla | `nginx-sample` |
 | **Cache/Messaging** | Redis 7 — Pub/Sub + History + Presence | `redis` |
-| **Platform** | Red Hat OpenShift 4.19 — S2I builds | cluster `itz-70730t` |
+| **Platform** | Red Hat OpenShift 4.19 — S2I builds | cluster `itz-1y1puu` |
 
 ### Arquitetura
 
@@ -39,10 +39,10 @@ Browser C ──┘                                └──► chat:history (LR
 ### URLs do Ambiente
 
 ```
-🌐 Frontend : https://nginx-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com
-🔌 Backend  : https://golang-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com
+🌐 Frontend : https://nginx-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com
+🔌 Backend  : https://golang-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com
 💾 Redis    : redis.openshift-lab.svc.cluster.local:6379  (interno)
-🖥️  Console : https://console-openshift-console.apps.itz-70730t.hub04-lb.techzone.ibm.com
+🖥️  Console : https://console-openshift-console.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com
 ```
 
 ---
@@ -52,7 +52,7 @@ Browser C ──┘                                └──► chat:history (LR
 ### Cenário 1: Múltiplos Usuários Conversando
 
 1. Abrir 3 navegadores lado a lado
-2. Cada um acessa: `https://nginx-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com`
+2. Cada um acessa: `https://nginx-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com`
 3. Cada um entra com nickname diferente:
    - `Alice` no Chrome
    - `Bob` no Firefox
@@ -105,7 +105,10 @@ redis-xxxx                       1/1     Running   0          Xh
 oc get builds -n openshift-lab
 
 # Fazer um rebuild ao vivo do backend
-oc start-build golang-sample -n openshift-lab --from-dir=openshift-lab/chat-backend --follow
+# ATENÇÃO: sempre usar --from-dir (não Git trigger) neste cluster
+oc start-build golang-sample -n openshift-lab --from-dir=chat-backend --follow
+# Após o build concluir, atualizar imagem no Deployment:
+oc set image deployment/golang-sample golang-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/golang-sample:latest" -n openshift-lab
 
 # OpenShift automaticamente:
 # 1. Compila o código Go com S2I
@@ -215,13 +218,12 @@ TOTAL CHAT STACK   8m           ~46Mi     ← consumo mínimo
 
 | Campo | Valor |
 |-------|-------|
-| Cluster | `itz-70730t` — IBM TechZone OCPv IBM Cloud |
+| Cluster | `itz-1y1puu` — IBM TechZone OCPv IBM Cloud (Frankfurt fra02) |
 | OCP Version | 4.19 |
-| Reservation | `6a8477e0f2b24cfafe22c879` |
+| Reservation | `6a86d03bbd35986274e9828f` |
 | Namespace | `openshift-lab` |
 | Criado via | AskTZ + IBM Bob (AI Assistant) |
-| Expiração | 20 Aug 2026 12:19 PM |
-| Workers | 3x RHCOS 9.6 — `itz-70730t-worker-{1,2,3}` |
+| Workers | RHCOS 9.x |
 
 ---
 
@@ -243,11 +245,13 @@ oc logs -f deployment/nginx-sample -n openshift-lab
 # Métricas
 oc adm top pods -n openshift-lab
 
-# Rebuild backend
-oc start-build golang-sample -n openshift-lab --from-dir=openshift-lab/chat-backend --follow
+# Rebuild backend (sempre --from-dir neste cluster)
+oc start-build golang-sample -n openshift-lab --from-dir=chat-backend --follow
+oc set image deployment/golang-sample golang-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/golang-sample:latest" -n openshift-lab
 
-# Rebuild frontend
-oc start-build nginx-sample -n openshift-lab --from-dir=openshift-lab/chat-frontend --follow
+# Rebuild frontend (sempre --from-dir neste cluster)
+oc start-build nginx-sample -n openshift-lab --from-dir=chat-frontend --follow
+oc set image deployment/nginx-sample nginx-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/nginx-sample:latest" -n openshift-lab
 
 # Escalar backend
 oc scale deployment/golang-sample --replicas=2 -n openshift-lab
@@ -439,7 +443,7 @@ oc port-forward svc/redis 6379:6379 -n openshift-lab
 npm install -g wscat
 
 # Conectar ao chat como "TestUser"
-wscat -c "wss://golang-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com/ws?nickname=TestUser"
+wscat -c "wss://golang-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com/ws?nickname=TestUser"
 
 # Após conectar, enviar mensagem:
 > {"content":"Olá do wscat!"}

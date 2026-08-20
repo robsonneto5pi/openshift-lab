@@ -1,7 +1,7 @@
 /**
  * websocket.js — Gerenciador de conexão WebSocket com reconexão automática.
  */
-const WS_BACKEND_HOST = 'golang-sample-openshift-lab.apps.itz-70730t.hub04-lb.techzone.ibm.com';
+const WS_BACKEND_HOST = 'golang-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com';
 
 window.ChatWS = (() => {
   let socket = null;
