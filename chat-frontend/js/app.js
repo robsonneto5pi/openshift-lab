@@ -148,6 +148,7 @@
       firstMsgSent = false;
       resetUnread();
       document.title = BASE_TITLE;
+      sessionStorage.removeItem('chat:userId');
       ChatUI.resetChat();
       return;
     }

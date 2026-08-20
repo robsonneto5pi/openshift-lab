@@ -41,6 +41,25 @@ window.ChatUI = (() => {
     $('message-input').focus();
   }
 
+  // Atualiza o nickname no header após receber o welcome (pode ser diferente do solicitado).
+  function updateDisplayName(displayName, requestedAs) {
+    $('my-nickname').textContent = displayName;
+    if (requestedAs && requestedAs !== displayName) {
+      // Mostrar aviso sutil abaixo do header durante 4s
+      let notice = document.getElementById('nick-notice');
+      if (!notice) {
+        notice = document.createElement('div');
+        notice.id = 'nick-notice';
+        notice.className = 'nick-notice';
+        const header = document.querySelector('.chat-header');
+        header.insertAdjacentElement('afterend', notice);
+      }
+      notice.textContent = `"${requestedAs}" já em uso → você entrou como ${displayName}`;
+      notice.classList.add('visible');
+      setTimeout(() => notice.classList.remove('visible'), 5000);
+    }
+  }
+
   // ── Status dot ──────────────────────────────────────────────────────
   function setStatus(state) { // 'connecting' | 'connected' | 'error'
     const dot = $('connection-status');
@@ -216,6 +235,7 @@ window.ChatUI = (() => {
 
   return {
     showLogin, showChat, setStatus, resetChat,
+    updateDisplayName,
     appendMessage, loadHistory,
     updateOnline, removeIntroBanner,
     showRateWarning,
