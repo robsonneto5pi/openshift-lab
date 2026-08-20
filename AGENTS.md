@@ -46,8 +46,10 @@ node scripts/simulate-chat.js [users] [msgs] [wsUrl]  # load test against live c
 git add <files> && git commit -m "..."
 
 # Step 2 — generate tar from Git HEAD (guarantees committed content)
-git archive HEAD chat-backend --prefix="" -o backend-build.tar
-git archive HEAD chat-frontend --prefix="" -o frontend-build.tar
+# MUST use "HEAD:subdir" syntax — NOT "HEAD subdir --prefix="
+# "HEAD:chat-backend" exports the tree of chat-backend/ as tar root (no path prefix)
+git archive HEAD:chat-backend  -o backend-build.tar
+git archive HEAD:chat-frontend -o frontend-build.tar
 
 # Step 3 — build from archive (not --from-dir)
 oc start-build golang-sample --from-archive=backend-build.tar --follow -n openshift-lab

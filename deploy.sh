@@ -113,9 +113,11 @@ oc rollout status deployment/redis -n "${NAMESPACE}" --timeout=180s \
 
 echo ""
 echo "  Gerando archives do Git HEAD (garante conteúdo commitado)..."
-git -C "${SCRIPT_DIR}" archive HEAD chat-backend --prefix="" \
+# Usar o tree object de cada subdiretório para gerar tar sem prefixo de pasta.
+# "git archive HEAD:chat-backend" exporta o conteúdo de chat-backend/ como raiz do tar.
+git -C "${SCRIPT_DIR}" archive HEAD:chat-backend \
   -o "${SCRIPT_DIR}/backend-build.tar"
-git -C "${SCRIPT_DIR}" archive HEAD chat-frontend --prefix="" \
+git -C "${SCRIPT_DIR}" archive HEAD:chat-frontend \
   -o "${SCRIPT_DIR}/frontend-build.tar"
 echo "  Archives gerados."
 echo ""
