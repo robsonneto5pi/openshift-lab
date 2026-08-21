@@ -170,6 +170,14 @@
   ChatWS.on('message', (env) => {
     switch (env.type) {
 
+      case 'welcome':
+        if (env.userId) sessionStorage.setItem('chat:userId', env.userId);
+        if (env.user) {
+          myNick = env.user; // atualiza para o nome atribuído pelo servidor (pode ter #XXXX)
+          ChatUI.updateDisplayName(env.user, env.requestedAs);
+        }
+        break;
+
       case 'history':
         if (env.messages && env.messages.length > 0) {
           ChatUI.loadHistory(env.messages, myNick);
