@@ -2,7 +2,7 @@
 # Deploy Staging — Automático em push para develop
 # Trigger: push na branch develop
 # Namespace: openshift-lab (cluster TechZone atual)
-# Estratégia: oc start-build --from-dir (S2I hot-reload)
+# Estratégia: git archive | oc start-build --from-archive (garante LF nos scripts S2I)
 # =============================================================================
 name: Deploy Staging
 
@@ -24,6 +24,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # -----------------------------------------------------------------------
       # Build Go local (validação antes do S2I)
@@ -31,10 +33,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.21"
-          cache-dependency-path: openshift-lab/chat-backend/go.sum
+          cache-dependency-path: chat-backend/go.sum
 
       - name: Validate Go build
-        working-directory: openshift-lab/chat-backend
+        working-directory: chat-backend
         run: go build -o /dev/null ./...
 
       # -----------------------------------------------------------------------
@@ -58,13 +60,18 @@ jobs:
 
       # -----------------------------------------------------------------------
       # S2I Build — Backend (golang-sample)
+      # git archive HEAD:chat-backend exporta a árvore sem prefixo de path
+      # garantindo LF e excluindo arquivos não commitados
       # -----------------------------------------------------------------------
       - name: S2I Build — golang-sample
         run: |
+          git archive HEAD:chat-backend -o backend-build.tar
           oc start-build golang-sample \
-            --from-dir=openshift-lab/chat-backend \
-            --follow \
-            --wait \
+            --from-archive=backend-build.tar \
+            --follow --wait \
+            -n openshift-lab
+          oc set image deployment/golang-sample \
+            golang-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/golang-sample:latest" \
             -n openshift-lab
 
       # -----------------------------------------------------------------------
@@ -72,10 +79,13 @@ jobs:
       # -----------------------------------------------------------------------
       - name: S2I Build — nginx-sample
         run: |
+          git archive HEAD:chat-frontend -o frontend-build.tar
           oc start-build nginx-sample \
-            --from-dir=openshift-lab/chat-frontend \
-            --follow \
-            --wait \
+            --from-archive=frontend-build.tar \
+            --follow --wait \
+            -n openshift-lab
+          oc set image deployment/nginx-sample \
+            nginx-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/nginx-sample:latest" \
             -n openshift-lab
 
       # -----------------------------------------------------------------------
