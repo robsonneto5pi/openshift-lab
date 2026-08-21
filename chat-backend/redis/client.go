@@ -121,7 +121,23 @@ func (c *Client) ReleaseDiscriminator(ctx context.Context, base, discriminator s
 	return c.rdb.SRem(ctx, namesKey(base), discriminator).Err()
 }
 
-// IsNicknameTaken retorna true se o nickname exato já está no set online.
+// --- Reserva de nicknames (conexão) ------------------------------------
+
+const reservedKey = "chat:reserved"
+
+// ReserveNickname tenta reservar o nickname base no momento da conexão WS.
+// Retorna true se conseguiu reservar (era único), false se já existia.
+func (c *Client) ReserveNickname(ctx context.Context, nickname string) (bool, error) {
+	added, err := c.rdb.SAdd(ctx, reservedKey, strings.ToLower(nickname)).Result()
+	return added == 1, err
+}
+
+// ReleaseNickname libera a reserva do nickname base ao desconectar.
+func (c *Client) ReleaseNickname(ctx context.Context, nickname string) error {
+	return c.rdb.SRem(ctx, reservedKey, strings.ToLower(nickname)).Err()
+}
+
+// IsNicknameTaken retorna true se o nickname base já está reservado (desde a conexão).
 func (c *Client) IsNicknameTaken(ctx context.Context, nickname string) (bool, error) {
-	return c.rdb.SIsMember(ctx, onlineKey, nickname).Result()
+	return c.rdb.SIsMember(ctx, reservedKey, strings.ToLower(nickname)).Result()
 }

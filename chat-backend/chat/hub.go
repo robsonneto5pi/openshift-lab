@@ -112,6 +112,10 @@ func (h *Hub) Run() {
 				h.publishSystem(c.displayName + " saiu da sala")
 				_ = h.redis.RemoveOnline(context.Background(), c.displayName)
 			}
+			// Liberar reserva do nickname base (chat:reserved)
+			if c.discriminator == "" {
+				_ = h.redis.ReleaseNickname(context.Background(), c.baseName)
+			}
 			// Liberar discriminador se o displayName tem sufixo #XXXX
 			if c.discriminator != "" {
 				_ = h.redis.ReleaseDiscriminator(

@@ -130,12 +130,12 @@ func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
 
-	// Resolver displayName: se o nickname já está em uso, atribuir discriminador
-	taken, _ := hub.redis.IsNicknameTaken(ctx, requestedNick)
+	// Tentar reservar o nickname base (set chat:reserved, desde a conexão)
+	reserved, _ := hub.redis.ReserveNickname(ctx, requestedNick)
 
 	var displayName, discriminator string
-	if taken {
-		// Atribuir discriminador automático
+	if !reserved {
+		// Nickname já reservado → atribuir discriminador automático
 		displayName, err = hub.redis.ClaimDiscriminator(ctx, requestedNick)
 		if err != nil {
 			log.Printf("ClaimDiscriminator error for %s: %v", requestedNick, err)
