@@ -70,3 +70,7 @@ bash openshift-lab/cleanup.sh
 - [Redis on OpenShift](https://catalog.redhat.com/software/containers/rhel9/redis-7/63f94e6d6eb6ded04e2e6aa6)
 - [Red Hat Container Catalog](https://catalog.redhat.com)
 - Cluster TechZone: `<OCP_SERVER>`
+
+---
+
+**Status:** ✅ Migrado para github.com — GitHub Actions ativado (2026-08-21)
