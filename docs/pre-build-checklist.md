@@ -85,11 +85,18 @@ oc get deployment golang-sample -n openshift-lab `
 |----------|---------------|---------|
 | `REDIS_HOST` | `redis` | ✅ Sim |
 | `REDIS_PORT` | `6379` | ✅ Sim |
-| `REDIS_PASSWORD` | `<REDIS_PASSWORD>` | ✅ Sim |
+| `REDIS_PASSWORD` | `<do Secret redis-secret>` | ✅ Sim |
 | `HISTORY_LIMIT` | `100` | Não |
 | `RATE_LIMIT` | `10` | Não |
 | `GIN_MODE` | `release` | Não |
 | `PORT` | `8080` | ✅ Sim |
+
+> ⚠️ **Por que REDIS_HOST e REDIS_PORT precisam ser explícitos?**
+> O Kubernetes injeta automaticamente a variável `REDIS_PORT=tcp://172.30.x.x:6379`
+> para todos os pods no mesmo namespace quando existe um Service chamado `redis`.
+> O app Go lê `REDIS_HOST + ":" + REDIS_PORT`, então sem as env vars explícitas
+> o endereço fica `redis:tcp://172.30.x.x:6379` — inválido. O manifest já inclui
+> essas variáveis; não as remova.
 
 ---
 
@@ -97,15 +104,31 @@ oc get deployment golang-sample -n openshift-lab `
 
 ```powershell
 # Sempre usar --from-dir (envia o diretório local, não clona do Git)
+# ⚠️  NUNCA usar trigger Git neste cluster — gera InvalidOutputReference
+#     enquanto o registry interno não está ativo/reconhecido pelo build controller.
 $env:KUBECONFIG = "openshift-lab\conf_kubeconfig_download.conf"
 oc start-build golang-sample `
-  --from-dir=openshift-lab\chat-backend `
+  --from-dir=chat-backend `
   --follow `
   -n openshift-lab
 ```
 
 > ⚠️ `--follow` exibe os logs em tempo real e retorna exit 0/1 ao final.
 > Sem `--follow`, o build roda em background — verificar com `oc get builds -n openshift-lab`.
+
+### Após o build: atualizar imagem no Deployment
+
+```powershell
+# ⚠️  OBRIGATÓRIO após cada build neste cluster.
+# O Deployment não detecta automaticamente a nova imagem no ImageStream
+# porque foi criado antes do primeiro build bem-sucedido.
+oc set image deployment/golang-sample `
+  golang-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/golang-sample:latest" `
+  -n openshift-lab
+oc set image deployment/nginx-sample `
+  nginx-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/nginx-sample:latest" `
+  -n openshift-lab
+```
 
 ---
 
@@ -136,3 +159,6 @@ node openshift-lab\scripts\simulate-chat.js 2 10
 | `cannot find package` | `go.sum` ausente | `go mod tidy` localmente primeiro |
 | `http: 400 Bad Request` no WebSocket | Falta `?nickname=` na URL | Passar nickname como query param |
 | `Unexpected server response: 400` | Nickname inválido (< 3 chars ou chars especiais) | Nickname: 3–20 chars, letras/números/`_`/`-` |
+| `InvalidOutputReference` no build | Registry interno desabilitado | Ativar registry: `oc patch configs.imageregistry... --type merge --patch-file registry-patch.json` |
+| `redis:tcp://...: too many colons` no app | `REDIS_PORT` injetado pelo K8s sobrescrevendo o fallback | Env vars `REDIS_HOST` e `REDIS_PORT` devem ser explícitas no Deployment |
+| Pod em `ImagePullBackOff` após build | Deployment aponta para `golang-sample:latest` (Docker Hub) | Executar `oc set image` com URL completa do registry interno |

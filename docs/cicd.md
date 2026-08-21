@@ -128,7 +128,7 @@ Repository → Settings → Secrets and variables → Actions → New repository
 | Secret | Valor | Como obter |
 |---|---|---|
 | `OPENSHIFT_STAGING_TOKEN` | Token de SA do cluster staging | Ver abaixo |
-| `OPENSHIFT_STAGING_SERVER` | `https://api.itz-70730t.hub04-lb.techzone.ibm.com:6443` | `.env.local` → `OCP_SERVER` |
+| `OPENSHIFT_STAGING_SERVER` | `https://api.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com:6443` | `.env.local` → `OCP_SERVER` |
 | `OPENSHIFT_PROD_TOKEN` | Token de SA do cluster produção | Ver abaixo |
 | `OPENSHIFT_PROD_SERVER` | URL do cluster produção | `.env.local` produção |
 | `SLACK_WEBHOOK_URL` | `https://hooks.slack.com/services/...` | Slack App → Incoming Webhooks |
@@ -240,3 +240,5 @@ git push origin feature/add-rate-limit-logging
 | [`scripts/rollback.sh`](../scripts/rollback.sh) | Rollback automático em caso de falha |
 | [`.husky/commit-msg`](../.husky/commit-msg) | Hook: valida formato do commit |
 | [`.husky/pre-commit`](../.husky/pre-commit) | Hook: verifica LF nos scripts S2I |
+
+<!-- ci-validation: pipeline test trigger -->

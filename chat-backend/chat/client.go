@@ -1,12 +1,15 @@
 package chat
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 	"unicode"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -25,11 +28,15 @@ var upgrader = websocket.Upgrader{
 
 // Client representa uma conexão WebSocket individual.
 type Client struct {
-	hub      *Hub
-	conn     *websocket.Conn
-	send     chan []byte
-	nickname string
-	active   bool // false até enviar a primeira mensagem
+	hub           *Hub
+	conn          *websocket.Conn
+	send          chan []byte
+	userId        string // UUID imutável da sessão
+	baseName      string // nickname base sem discriminador (ex: "Robson")
+	discriminator string // sufixo 4 dígitos reservado (ex: "4821"), "" se único
+	displayName   string // nome exibido: baseName ou baseName#discriminator
+	nickname      string // alias para displayName (compatibilidade com parseMentions)
+	active        bool   // false até enviar a primeira mensagem
 }
 
 func (c *Client) sendError(msg string) {
@@ -56,7 +63,7 @@ func (c *Client) readPump() {
 		_, msg, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WS read error [%s]: %v", c.nickname, err)
+				log.Printf("WS read error [%s]: %v", c.displayName, err)
 			}
 			break
 		}
@@ -102,11 +109,16 @@ func (c *Client) writePump() {
 	}
 }
 
-// ServeWs faz o upgrade HTTP→WS e registra o client no Hub.
+// ServeWs faz o upgrade HTTP→WS, resolve identidade e registra o client no Hub.
 func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	nickname := r.URL.Query().Get("nickname")
-	if err := validateNickname(nickname); err != "" {
+	requestedNick := r.URL.Query().Get("nickname")
+	if err := validateNickname(requestedNick); err != "" {
 		http.Error(w, err, http.StatusBadRequest)
+		return
+	}
+	// Rejeitar # no nickname digitado — apenas o servidor atribui discriminadores
+	if strings.Contains(requestedNick, "#") {
+		http.Error(w, "Nickname não pode conter #", http.StatusBadRequest)
 		return
 	}
 
@@ -115,12 +127,42 @@ func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Printf("WS upgrade error: %v", err)
 		return
 	}
+
+	ctx := context.Background()
+
+	// Tentar reservar o nickname base (set chat:reserved, desde a conexão)
+	reserved, _ := hub.redis.ReserveNickname(ctx, requestedNick)
+
+	var displayName, discriminator string
+	if !reserved {
+		// Nickname já reservado → atribuir discriminador automático
+		displayName, err = hub.redis.ClaimDiscriminator(ctx, requestedNick)
+		if err != nil {
+			log.Printf("ClaimDiscriminator error for %s: %v", requestedNick, err)
+			_ = conn.WriteMessage(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseNormalClosure, "nickname indisponível"))
+			conn.Close()
+			return
+		}
+		// Extrair discriminador do displayName (ex: "Robson#4821" → "4821")
+		parts := strings.SplitN(displayName, "#", 2)
+		if len(parts) == 2 {
+			discriminator = parts[1]
+		}
+	} else {
+		displayName = requestedNick
+	}
+
 	client := &Client{
-		hub:      hub,
-		conn:     conn,
-		send:     make(chan []byte, 256),
-		nickname: nickname,
-		active:   false,
+		hub:           hub,
+		conn:          conn,
+		send:          make(chan []byte, 256),
+		userId:        uuid.New().String(),
+		baseName:      requestedNick,
+		discriminator: discriminator,
+		displayName:   displayName,
+		nickname:      displayName, // alias para parseMentions
+		active:        false,
 	}
 	hub.register <- client
 	go client.writePump()

@@ -1,0 +1,34 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: nginx-sample
+  namespace: openshift-lab
+  labels:
+    app: nginx-sample
+    app.kubernetes.io/part-of: openshift-lab
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: nginx-sample:latest
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  source:
+    git:
+      ref: develop
+      uri: https://github.ibm.com/robson-neto/openshift-lab.git
+    type: Git
+  strategy:
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        name: nginx:1.24-ubi9
+        namespace: openshift
+    type: Source
+  triggers:
+    - type: ConfigChange

@@ -13,6 +13,23 @@ window.ChatUI = (() => {
     $('chat-screen').classList.remove('active');
   }
 
+  // Limpa o estado do chat e volta para a tela de login.
+  function resetChat() {
+    // Limpar mensagens
+    const container = $('messages-container');
+    container.innerHTML = '<div class="intro-banner"><p>👋 Envie uma mensagem para se apresentar à sala!</p></div>';
+    // Limpar lista de online
+    $('online-users').innerHTML = '';
+    $('online-count').textContent = '0';
+    // Limpar inputs
+    $('message-input').value = '';
+    $('message-input').disabled = true;
+    $('send-btn').disabled = true;
+    $('nickname-input').value = '';
+    // Voltar para login
+    showLogin();
+  }
+
   function showChat(nick) {
     $('chat-screen').classList.add('active');
     $('chat-screen').classList.remove('hidden');
@@ -24,6 +41,25 @@ window.ChatUI = (() => {
     $('message-input').focus();
   }
 
+  // Atualiza o nickname no header após receber o welcome (pode ser diferente do solicitado).
+  function updateDisplayName(displayName, requestedAs) {
+    $('my-nickname').textContent = displayName;
+    if (requestedAs && requestedAs !== displayName) {
+      // Mostrar aviso sutil abaixo do header durante 4s
+      let notice = document.getElementById('nick-notice');
+      if (!notice) {
+        notice = document.createElement('div');
+        notice.id = 'nick-notice';
+        notice.className = 'nick-notice';
+        const header = document.querySelector('.chat-header');
+        header.insertAdjacentElement('afterend', notice);
+      }
+      notice.textContent = `"${requestedAs}" já em uso → você entrou como ${displayName}`;
+      notice.classList.add('visible');
+      setTimeout(() => notice.classList.remove('visible'), 5000);
+    }
+  }
+
   // ── Status dot ──────────────────────────────────────────────────────
   function setStatus(state) { // 'connecting' | 'connected' | 'error'
     const dot = $('connection-status');
@@ -32,7 +68,51 @@ window.ChatUI = (() => {
   }
 
   // ── Messages ─────────────────────────────────────────────────────────
-  function appendMessage(env, myNick) {
+
+  // Renderiza o conteúdo da mensagem com @menções em negrito.
+  // Retorna true se myNick foi mencionado.
+  function renderContent(textEl, content, myNick) {
+    // Regex: @palavra (letras, números, _, -, #)
+    const mentionRe = /@([\w\-#]+)/g;
+    let lastIdx = 0;
+    let matched;
+    let isMentioned = false;
+
+    // Base do nickname para comparação: "Robson#4821" → "Robson" e "Robson#4821"
+    const myBase = myNick ? myNick.replace(/#\d+$/, '').toLowerCase() : '';
+    const myFull = myNick ? myNick.toLowerCase() : '';
+
+    while ((matched = mentionRe.exec(content)) !== null) {
+      // texto antes da menção
+      if (matched.index > lastIdx) {
+        textEl.appendChild(document.createTextNode(content.slice(lastIdx, matched.index)));
+      }
+      const mentionWord = matched[1];
+      const mentionLower = mentionWord.toLowerCase();
+
+      // Verificar se é menção ao usuário atual (base ou full)
+      if (myNick && (mentionLower === myFull || mentionLower === myBase)) {
+        isMentioned = true;
+      }
+
+      const span = document.createElement('span');
+      span.className = 'mention-text';
+      span.textContent = '@' + mentionWord;
+      textEl.appendChild(span);
+      lastIdx = matched.index + matched[0].length;
+    }
+
+    // texto restante após a última menção
+    if (lastIdx < content.length) {
+      textEl.appendChild(document.createTextNode(content.slice(lastIdx)));
+    }
+
+    return isMentioned;
+  }
+
+  function appendMessage(env, myNick, opts) {
+    // opts: { fromHistory: bool } — mensagens do histórico não disparam notificações
+    const fromHistory = opts && opts.fromHistory;
     const container = $('messages-container');
 
     if (env.type === 'system') {
@@ -41,10 +121,10 @@ window.ChatUI = (() => {
       el.textContent = '— ' + env.content + ' —';
       container.appendChild(el);
       scrollBottom();
-      return;
+      return { isMention: false };
     }
 
-    if (env.type !== 'message') return;
+    if (env.type !== 'message') return { isMention: false };
 
     const isMe = env.user === myNick;
     const el = document.createElement('div');
@@ -66,12 +146,19 @@ window.ChatUI = (() => {
 
     const text = document.createElement('div');
     text.className = 'msg-text';
-    text.textContent = env.content;
+
+    // Renderiza conteúdo com menções em negrito
+    const isMentioned = !isMe && !fromHistory
+      ? renderContent(text, env.content, myNick)
+      : (text.textContent = env.content, false);
+
+    if (isMentioned) el.classList.add('mention');
 
     el.appendChild(header);
     el.appendChild(text);
     container.appendChild(el);
     scrollBottom();
+    return { isMention: isMentioned, el };
   }
 
   function loadHistory(messages, myNick) {
@@ -79,7 +166,7 @@ window.ChatUI = (() => {
     const banner = document.querySelector('.intro-banner');
     if (banner && messages.length > 0) banner.remove();
 
-    messages.forEach(m => appendMessage(m, myNick));
+    messages.forEach(m => appendMessage(m, myNick, { fromHistory: true }));
   }
 
   function scrollBottom() {
@@ -147,7 +234,8 @@ window.ChatUI = (() => {
   }
 
   return {
-    showLogin, showChat, setStatus,
+    showLogin, showChat, setStatus, resetChat,
+    updateDisplayName,
     appendMessage, loadHistory,
     updateOnline, removeIntroBanner,
     showRateWarning,

@@ -88,6 +88,18 @@ spec:
           ports:
             - containerPort: 8080
               protocol: TCP
+          env:
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: REDIS_PASSWORD
+            - name: GIN_MODE
+              value: "release"
           resources:
             limits:
               cpu: 100m
@@ -97,14 +109,14 @@ spec:
               memory: 64Mi
           readinessProbe:
             httpGet:
-              path: /
+              path: /ready
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /
+              path: /health
               port: 8080
             initialDelaySeconds: 20
             periodSeconds: 15

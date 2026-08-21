@@ -1,4 +1,4 @@
-# OpenShift Lab — Arquitetura, Sizing e Guias
+﻿# OpenShift Lab — Arquitetura, Sizing e Guias
 
 > Documento técnico completo: diagrama lógico, estimativa de recursos,
 > ordem de implantação, CI/CD, checklists de validação e limpeza.
@@ -10,19 +10,18 @@
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                    IBM TechZone — OCP 4.18 (Medium)                      │
-│                   <BASTION_HOST>       │
+│              api.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com       │
 │                                                                           │
 │  ┌─────────────────────────────────────────────────────────────────────┐ │
 │  │                 Namespace: openshift-lab                            │ │
 │  │                                                                     │ │
 │  │  ┌──────────────────────────────────────────────────────────────┐  │ │
 │  │  │                  Ingress / Router (HAProxy)                   │  │ │
-│  │  │        *.apps.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com   │  │ │
+│  │  │        *.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com   │  │ │
 │  │  └────────────┬───────────────┬──────────────┬───────────────────┘  │ │
 │  │               │ Route (HTTPS) │ Route (HTTPS) │ Route (HTTPS)        │ │
 │  │               ▼               ▼               ▼                      │ │
 │  │  ┌────────────────┐ ┌────────────────┐ ┌────────────────┐           │ │
-│  │  │  dotnet-sample │ │ golang-sample  │ │  nginx-sample  │           │ │
 │  │  │  (.NET Core 8) │ │   (Go 1.21)    │ │  (Nginx 1.24)  │           │ │
 │  │  │  Port: 8080    │ │  Port: 8080    │ │  Port: 8080    │           │ │
 │  │  │  S2I Build     │ │  S2I Build     │ │  S2I Build     │           │ │
@@ -38,7 +37,7 @@
 │  │                                                                      │ │
 │  │  ┌──────────────────────────────────────────────────────────────┐   │ │
 │  │  │                   OpenShift Internal Registry                │   │ │
-│  │  │   ImageStream: dotnet-sample | golang-sample | nginx-sample  │   │ │
+│  │  │   ImageStream: golang-sample | nginx-sample  │   │ │
 │  │  └──────────────────────────────────────────────────────────────┘   │ │
 │  └──────────────────────────────────────────────────────────────────────┘ │
 │                                                                           │
@@ -55,9 +54,8 @@
 └──────────────────────────────────────────────────────────────────────────┘
 
 Acesso externo via browser:
-  https://dotnet-sample-openshift-lab.apps.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com
-  https://golang-sample-openshift-lab.apps.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com
-  https://nginx-sample-openshift-lab.apps.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com
+  https://golang-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com
+  https://nginx-sample-openshift-lab.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com
 ```
 
 ---
@@ -68,17 +66,15 @@ Acesso externo via browser:
 
 | Componente | CPU Request | CPU Limit | Mem Request | Mem Limit | Storage |
 |------------|-------------|-----------|-------------|-----------|---------|
-| dotnet-sample | 50m | 200m | 128 Mi | 256 Mi | — |
 | golang-sample | 25m | 100m | 64 Mi | 128 Mi | — |
 | nginx-sample | 25m | 100m | 32 Mi | 64 Mi | — |
 | redis | 50m | 200m | 64 Mi | 128 Mi | 1 Gi PVC |
-| **Total steady** | **150m** | **600m** | **288 Mi** | **576 Mi** | **1 Gi** |
+| **Total steady** | **100m** | **400m** | **160 Mi** | **320 Mi** | **1 Gi** |
 
 ### Durante o período de build S2I (pico temporário)
 
 | BuildConfig | CPU (build) | Mem (build) | Duração estimada |
 |-------------|-------------|-------------|-----------------|
-| dotnet-sample | 100–500m | 256–512 Mi | ~3–5 min |
 | golang-sample | 100–500m | 256–512 Mi | ~1–2 min |
 | nginx-sample | 50–300m | 128–256 Mi | ~1–2 min |
 
@@ -116,7 +112,7 @@ Acesso externo via browser:
 
 ```
 1. BuildConfig detecta mudança (trigger: ConfigChange ou WebHook)
-2. Build Pod é criado com a imagem builder (ex: dotnet:8.0-ubi9)
+2. Build Pod é criado com a imagem builder (ex: golang:1.21-ubi9)
 3. Build Pod clona o repositório Git
 4. S2I executa: assemble script (compila o código)
 5. Imagem resultante é pushed para o ImageStream interno
@@ -134,7 +130,6 @@ openshift-lab/                     ← este diretório
 ├── cleanup.sh                     ← remoção limpa
 ├── manifests/
 │   ├── 00-project.yaml            ← Namespace
-│   ├── 01-dotnet-sample.yaml      ← IS + BC + Deploy + Svc + Route
 │   ├── 02-golang-sample.yaml      ← IS + BC + Deploy + Svc + Route
 │   ├── 03-nginx-sample.yaml       ← IS + BC + Deploy + Svc + Route
 │   └── 04-redis.yaml              ← PVC + Secret + Deploy + Svc
@@ -165,12 +160,10 @@ GitHub Push ──► OCP WebHook ──► BuildConfig ──► Build ──�
 **Como configurar o webhook:**
 ```bash
 # Obter URL do webhook do BuildConfig
-oc describe bc dotnet-sample -n openshift-lab | grep -A2 "Webhook"
 
 # No GitHub: Settings → Webhooks → Add webhook
 # Payload URL: <URL do webhook acima>
 # Content-Type: application/json
-# Secret: obtido via: oc get bc dotnet-sample -o jsonpath='{.spec.triggers[?(@.type=="GitHub")].github.secret}'
 ```
 
 ---
@@ -212,7 +205,7 @@ oc describe bc dotnet-sample -n openshift-lab | grep -A2 "Webhook"
 | Namespace | Conteúdo | Política |
 |-----------|---------|---------|
 | `openshift-lab` | Todas as aplicações + Redis | Lab isolado, fácil de deletar |
-| `openshift` | ImageStreams builder (dotnet, golang, nginx) | Compartilhado, não modificar |
+| `openshift` | ImageStreams builder (golang, nginx) | Compartilhado, n�o modificar |
 
 > Usar um único namespace `openshift-lab` simplifica o cleanup (`oc delete namespace openshift-lab`).
 
@@ -226,11 +219,10 @@ oc describe bc dotnet-sample -n openshift-lab | grep -A2 "Webhook"
 3. 04-redis.yaml     ← banco de dados primeiro (dependência das apps)
 4. 03-nginx-sample   ← build mais rápido (~1 min)
 5. 02-golang-sample  ← build médio (~2 min)
-6. 01-dotnet-sample  ← build mais demorado (~5 min)
 7. Validação         ← oc get pods + routes
 ```
 
-> Nginx e Golang podem ser aplicados em paralelo. .NET tem build mais lento — deixar por último.
+> Nginx e Golang podem ser aplicados em paralelo.
 
 ---
 
@@ -252,16 +244,14 @@ oc login <OCP_SERVER> \
 
 ```bash
 # Confirmar que os builders S2I existem no namespace openshift
-oc get imagestreams -n openshift | grep -E "dotnet|golang|nginx"
+oc get imagestreams -n openshift | grep -E "golang|nginx"
 
 # Listar tags disponíveis
-oc get imagestreamtags -n openshift | grep -E "dotnet|golang|nginx"
+oc get imagestreamtags -n openshift | grep -E "golang|nginx"
 ```
 
 > Se os builders não existirem, instale via oc import-image:
 > ```bash
-> oc import-image dotnet:8.0-ubi9 --from=registry.access.redhat.com/ubi9/dotnet-80 \
->   -n openshift --confirm
 > oc import-image golang:1.21-ubi9 --from=registry.access.redhat.com/ubi9/go-toolset \
 >   -n openshift --confirm
 > oc import-image nginx:1.24-ubi9 --from=registry.access.redhat.com/ubi9/nginx-124 \
@@ -286,14 +276,30 @@ bash ~/openshift-lab/deploy.sh
 oc apply -f openshift-lab/manifests/00-project.yaml
 oc project openshift-lab
 
+# ⚠️  Ativar registry interno (necessário neste cluster TechZone — vem desabilitado)
+oc patch configs.imageregistry.operator.openshift.io cluster --type merge \
+  --patch-file <(echo '{"spec":{"managementState":"Managed","storage":{"emptyDir":{}},"replicas":1}}')
+oc rollout status deployment/image-registry -n openshift-image-registry --timeout=180s
+
 # Redis
 oc apply -f openshift-lab/manifests/04-redis.yaml
 oc rollout status deployment/redis -n openshift-lab
 
-# Apps S2I
+# Apps S2I — aplicar manifestos (ImageStream + BuildConfig + Deployment)
 oc apply -f openshift-lab/manifests/03-nginx-sample.yaml
 oc apply -f openshift-lab/manifests/02-golang-sample.yaml
-oc apply -f openshift-lab/manifests/01-dotnet-sample.yaml
+
+# ⚠️  Builds: usar --from-dir (NÃO o trigger Git — gera InvalidOutputReference neste cluster)
+oc start-build golang-sample --from-dir=openshift-lab/chat-backend --follow -n openshift-lab
+oc start-build nginx-sample  --from-dir=openshift-lab/chat-frontend --follow -n openshift-lab
+
+# ⚠️  Após builds: apontar Deployments para imagem do registry interno
+oc set image deployment/golang-sample \
+  golang-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/golang-sample:latest" \
+  -n openshift-lab
+oc set image deployment/nginx-sample \
+  nginx-sample="image-registry.openshift-image-registry.svc:5000/openshift-lab/nginx-sample:latest" \
+  -n openshift-lab
 ```
 
 ### 5. Monitorar builds
@@ -302,11 +308,13 @@ oc apply -f openshift-lab/manifests/01-dotnet-sample.yaml
 # Listar builds em andamento
 oc get builds -n openshift-lab -w
 
-# Ver logs de um build específico
-oc logs build/dotnet-sample-1 -n openshift-lab -f
+# Ver logs do build mais recente de cada app
+oc logs -f build/golang-sample-$(oc get builds -n openshift-lab -l buildconfig=golang-sample \
+  --sort-by='.metadata.creationTimestamp' --no-headers | tail -1 | awk '{print $1}' | grep -oP '\d+$') \
+  -n openshift-lab
 
-# Ver log do build mais recente
-oc logs -f bc/dotnet-sample -n openshift-lab
+# Ver log de um build específico (ex: golang-sample-4)
+oc logs build/golang-sample-4 -n openshift-lab
 ```
 
 ### 6. Verificar deployment
@@ -321,7 +329,6 @@ oc get routes -n openshift-lab
 # Teste rápido de conectividade
 curl -k https://$(oc get route nginx-sample -n openshift-lab -o jsonpath='{.spec.host}')
 curl -k https://$(oc get route golang-sample -n openshift-lab -o jsonpath='{.spec.host}')
-curl -k https://$(oc get route dotnet-sample -n openshift-lab -o jsonpath='{.spec.host}')
 
 # Testar Redis (de dentro do cluster via rsh)
 oc rsh deployment/redis -n openshift-lab
@@ -348,7 +355,6 @@ redis-cli -a <REDIS_PASSWORD> ping   # esperado: PONG
 
 - [ ] `oc get pods -n openshift-lab` → todos em `Running`
 - [ ] `oc get pods -n openshift-lab` → Redis com `1/1 Running`
-- [ ] `oc get pods -n openshift-lab` → dotnet-sample com `1/1 Running`
 - [ ] `oc get pods -n openshift-lab` → golang-sample com `1/1 Running`
 - [ ] `oc get pods -n openshift-lab` → nginx-sample com `1/1 Running`
 
@@ -357,7 +363,6 @@ redis-cli -a <REDIS_PASSWORD> ping   # esperado: PONG
 - [ ] `oc get routes -n openshift-lab` → 3 routes com host gerado
 - [ ] `curl -k https://<nginx-route>` → responde HTTP 200
 - [ ] `curl -k https://<golang-route>` → responde HTTP 200
-- [ ] `curl -k https://<dotnet-route>` → responde HTTP 200
 
 ### Redis
 
@@ -406,12 +411,11 @@ bash openshift-lab/cleanup.sh
 
 | Recurso | URL |
 |---------|-----|
-| .NET Core S2I | https://github.com/redhat-developer/s2i-dotnetcore-ex |
 | Golang S2I | https://github.com/sclorg/golang-ex |
 | Nginx S2I | https://github.com/sclorg/nginx-ex |
 | Redis UBI9 (Red Hat) | https://catalog.redhat.com/software/containers/rhel9/redis-7 |
 | S2I Docs | https://docs.openshift.com/container-platform/4.18/cicd/builds/build-strategies.html |
 | OCP BuildConfig | https://docs.openshift.com/container-platform/4.18/cicd/builds/understanding-buildconfigs.html |
 | OCP ImageStream | https://docs.openshift.com/container-platform/4.18/openshift_images/image-streams-manage.html |
-| Cluster TechZone | https://techzone.ibm.com/my/requests/6a83048f9a24e6763ac1b8e7 |
-| OCP Console | https://console-openshift-console.apps.itz-qi8nl6.infra01-lb.fra02.techzone.ibm.com |
+| Cluster TechZone | https://techzone.ibm.com/my/requests/6a86d03bbd35986274e9828f |
+| OCP Console | https://console-openshift-console.apps.itz-1y1puu.infra01-lb.fra02.techzone.ibm.com |

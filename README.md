@@ -1,4 +1,4 @@
-# OpenShift Lab — Sample Applications Demo
+﻿# OpenShift Lab — Sample Applications Demo
 
 > Subprojeto independente para validação de deploys em Red Hat OpenShift via IBM TechZone.
 > Recursos mínimos, implantação rápida, remoção limpa.
@@ -14,7 +14,6 @@ openshift-lab/
 ├── cleanup.sh                       ← Remoção limpa de todos os recursos
 ├── manifests/
 │   ├── 00-project.yaml              ← Namespace / Project OpenShift
-│   ├── 01-dotnet-sample.yaml        ← .NET Core S2I App
 │   ├── 02-golang-sample.yaml        ← Golang S2I App
 │   ├── 03-nginx-sample.yaml         ← Nginx S2I App
 │   └── 04-redis.yaml                ← Redis (persistência simples)
@@ -28,7 +27,6 @@ openshift-lab/
 
 | App | Tecnologia | Estratégia | Porta |
 |-----|-----------|------------|-------|
-| dotnet-sample | .NET Core 8 | S2I + BuildConfig | 8080 |
 | golang-sample | Go 1.21 | S2I + BuildConfig | 8080 |
 | nginx-sample | Nginx 1.24 | S2I + BuildConfig | 8080 |
 | redis | Redis 7 | Deployment direto | 6379 |
@@ -67,7 +65,6 @@ bash openshift-lab/cleanup.sh
 
 ## Referências
 
-- [.NET Core S2I](https://github.com/redhat-developer/s2i-dotnetcore-ex)
 - [Golang S2I](https://github.com/sclorg/golang-ex)
 - [Nginx S2I](https://github.com/sclorg/nginx-ex)
 - [Redis on OpenShift](https://catalog.redhat.com/software/containers/rhel9/redis-7/63f94e6d6eb6ded04e2e6aa6)
